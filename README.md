@@ -2,11 +2,6 @@
 
 # Simple, reliable & efficient distributed task queue in Go
 
-[![GoDoc](https://godoc.org/github.com/hibiken/asynq?status.svg)](https://godoc.org/github.com/hibiken/asynq)
-[![Go Report Card](https://goreportcard.com/badge/github.com/hibiken/asynq)](https://goreportcard.com/report/github.com/hibiken/asynq)
-![Build Status](https://github.com/hibiken/asynq/workflows/build/badge.svg)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![Gitter chat](https://badges.gitter.im/go-asynq/gitter.svg)](https://gitter.im/go-asynq/community)
 
 Asynq is a Go library for queueing tasks and processing them asynchronously with workers. It's backed by [Valkey](https://github.com/valkey-io/valkey) and is designed to be scalable yet easy to get started.
 
