@@ -6,6 +6,7 @@ package asynq
 
 import (
 	"fmt"
+	valkey "github.com/Desquaredp/go-valkey"
 	"os"
 	"sync"
 	"time"
@@ -44,10 +45,10 @@ type Scheduler struct {
 	idmap map[string]cron.EntryID
 }
 
-// NewScheduler returns a new Scheduler instance given the redis connection option.
+// NewScheduler returns a new Scheduler instance given the valkey connection option.
 // The parameter opts is optional, defaults will be used if opts is set to nil
 func NewScheduler(r ValkeyConnOpt, opts *SchedulerOpts) *Scheduler {
-	c, ok := r.MakeValkeyClient().(redis.UniversalClient)
+	c, ok := r.MakeValkeyClient().(valkey.UniversalClient)
 	if !ok {
 		panic(fmt.Sprintf("asynq: unsupported ValkeyConnOpt type %T", r))
 	}
@@ -281,7 +282,7 @@ func (s *Scheduler) runHeartbeater() {
 	}
 }
 
-// beat writes a snapshot of entries to redis.
+// beat writes a snapshot of entries to valkey.
 func (s *Scheduler) beat() {
 	var entries []*base.SchedulerEntry
 	for _, entry := range s.cron.Entries() {

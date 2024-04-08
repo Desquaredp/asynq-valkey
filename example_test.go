@@ -7,6 +7,7 @@ package asynq_test
 import (
 	"context"
 	"fmt"
+	"github.com/Desquaredp/asynq-valkey"
 	"log"
 	"os"
 	"os/signal"

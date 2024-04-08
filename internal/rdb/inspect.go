@@ -7,6 +7,7 @@ package rdb
 import (
 	"context"
 	"fmt"
+	valkey "github.com/Desquaredp/go-valkey"
 	"strings"
 	"time"
 
@@ -25,7 +26,7 @@ type Stats struct {
 	// Name of the queue (e.g. "default", "critical").
 	Queue string
 	// MemoryUsage is the total number of bytes the queue and its tasks require
-	// to be stored in redis. It is an approximate memory usage value in bytes
+	// to be stored in valkey. It is an approximate memory usage value in bytes
 	// since the value is computed by sampling.
 	MemoryUsage int64
 	// Paused indicates whether the queue is paused.
@@ -91,24 +92,24 @@ type DailyStats struct {
 // --------
 // ARGV[1] -> task key prefix
 // ARGV[2] -> group key prefix
-var currentStatsCmd = redis.NewScript(`
+var currentStatsCmd = valkey.NewScript(`
 local res = {}
-local pendingTaskCount = redis.call("LLEN", KEYS[1])
+local pendingTaskCount = valkey.call("LLEN", KEYS[1])
 table.insert(res, KEYS[1])
 table.insert(res, pendingTaskCount)
 table.insert(res, KEYS[2])
-table.insert(res, redis.call("LLEN", KEYS[2]))
+table.insert(res, valkey.call("LLEN", KEYS[2]))
 table.insert(res, KEYS[3])
-table.insert(res, redis.call("ZCARD", KEYS[3]))
+table.insert(res, valkey.call("ZCARD", KEYS[3]))
 table.insert(res, KEYS[4])
-table.insert(res, redis.call("ZCARD", KEYS[4]))
+table.insert(res, valkey.call("ZCARD", KEYS[4]))
 table.insert(res, KEYS[5])
-table.insert(res, redis.call("ZCARD", KEYS[5]))
+table.insert(res, valkey.call("ZCARD", KEYS[5]))
 table.insert(res, KEYS[6])
-table.insert(res, redis.call("ZCARD", KEYS[6]))
+table.insert(res, valkey.call("ZCARD", KEYS[6]))
 for i=7,10 do
     local count = 0
-	local n = redis.call("GET", KEYS[i])
+	local n = valkey.call("GET", KEYS[i])
 	if n then
 	    count = tonumber(n)
 	end
@@ -116,20 +117,20 @@ for i=7,10 do
 	table.insert(res, count)
 end
 table.insert(res, KEYS[11])
-table.insert(res, redis.call("EXISTS", KEYS[11]))
+table.insert(res, valkey.call("EXISTS", KEYS[11]))
 table.insert(res, "oldest_pending_since")
 if pendingTaskCount > 0 then
-	local id = redis.call("LRANGE", KEYS[1], -1, -1)[1]
-	table.insert(res, redis.call("HGET", ARGV[1] .. id, "pending_since"))
+	local id = valkey.call("LRANGE", KEYS[1], -1, -1)[1]
+	table.insert(res, valkey.call("HGET", ARGV[1] .. id, "pending_since"))
 else
 	table.insert(res, 0)
 end
-local group_names = redis.call("SMEMBERS", KEYS[12])
+local group_names = valkey.call("SMEMBERS", KEYS[12])
 table.insert(res, "group_size")
 table.insert(res, table.getn(group_names))
 local aggregating_count = 0
 for _, gname in ipairs(group_names) do
-	aggregating_count = aggregating_count + redis.call("ZCARD", ARGV[2] .. gname)
+	aggregating_count = aggregating_count + valkey.call("ZCARD", ARGV[2] .. gname)
 end
 table.insert(res, "aggregating_count")
 table.insert(res, aggregating_count)
@@ -236,7 +237,7 @@ func (r *RDB) CurrentStats(qname string) (*Stats, error) {
 }
 
 // Computes memory usage for the given queue by sampling tasks
-// from each redis list/zset. Returns approximate memory usage value
+// from each valkey list/zset. Returns approximate memory usage value
 // in bytes.
 //
 // KEYS[1] -> asynq:{qname}:active
@@ -248,61 +249,61 @@ func (r *RDB) CurrentStats(qname string) (*Stats, error) {
 // KEYS[7] -> asynq:{qname}:groups
 // -------
 // ARGV[1] -> asynq:{qname}:t: (task key prefix)
-// ARGV[2] -> task sample size per redis list/zset (e.g 20)
+// ARGV[2] -> task sample size per valkey list/zset (e.g 20)
 // ARGV[3] -> group sample size
 // ARGV[4] -> asynq:{qname}:g: (group key prefix)
-var memoryUsageCmd = redis.NewScript(`
+var memoryUsageCmd = valkey.NewScript(`
 local sample_size = tonumber(ARGV[2])
 if sample_size <= 0 then
-    return redis.error_reply("sample size must be a positive number")
+    return valkey.error_reply("sample size must be a positive number")
 end
 local memusg = 0
 for i=1,2 do
-    local ids = redis.call("LRANGE", KEYS[i], 0, sample_size - 1)
+    local ids = valkey.call("LRANGE", KEYS[i], 0, sample_size - 1)
     local sample_total = 0
     if (table.getn(ids) > 0) then
         for _, id in ipairs(ids) do
-            local bytes = redis.call("MEMORY", "USAGE", ARGV[1] .. id)
+            local bytes = valkey.call("MEMORY", "USAGE", ARGV[1] .. id)
             sample_total = sample_total + bytes
         end
-        local n = redis.call("LLEN", KEYS[i])
+        local n = valkey.call("LLEN", KEYS[i])
         local avg = sample_total / table.getn(ids)
         memusg = memusg + (avg * n)
     end
-    local m = redis.call("MEMORY", "USAGE", KEYS[i])
+    local m = valkey.call("MEMORY", "USAGE", KEYS[i])
     if (m) then
         memusg = memusg + m
     end
 end
 for i=3,6 do
-    local ids = redis.call("ZRANGE", KEYS[i], 0, sample_size - 1)
+    local ids = valkey.call("ZRANGE", KEYS[i], 0, sample_size - 1)
     local sample_total = 0
     if (table.getn(ids) > 0) then
         for _, id in ipairs(ids) do
-            local bytes = redis.call("MEMORY", "USAGE", ARGV[1] .. id)
+            local bytes = valkey.call("MEMORY", "USAGE", ARGV[1] .. id)
             sample_total = sample_total + bytes
         end
-        local n = redis.call("ZCARD", KEYS[i])
+        local n = valkey.call("ZCARD", KEYS[i])
         local avg = sample_total / table.getn(ids)
         memusg = memusg + (avg * n)
     end
-    local m = redis.call("MEMORY", "USAGE", KEYS[i])
+    local m = valkey.call("MEMORY", "USAGE", KEYS[i])
     if (m) then
         memusg = memusg + m
     end
 end
-local groups = redis.call("SMEMBERS", KEYS[7])
+local groups = valkey.call("SMEMBERS", KEYS[7])
 if table.getn(groups) > 0 then
 	local agg_task_count = 0
 	local agg_task_sample_total = 0
 	local agg_task_sample_size = 0
 	for i, gname in ipairs(groups) do
 		local group_key = ARGV[4] .. gname
-		agg_task_count = agg_task_count + redis.call("ZCARD", group_key)
+		agg_task_count = agg_task_count + valkey.call("ZCARD", group_key)
 		if i <= tonumber(ARGV[3]) then
-			local ids = redis.call("ZRANGE", group_key, 0, sample_size - 1)
+			local ids = valkey.call("ZRANGE", group_key, 0, sample_size - 1)
 			for _, id in ipairs(ids) do
-				local bytes = redis.call("MEMORY", "USAGE", ARGV[1] .. id)
+				local bytes = valkey.call("MEMORY", "USAGE", ARGV[1] .. id)
 				agg_task_sample_total = agg_task_sample_total + bytes
 				agg_task_sample_size = agg_task_sample_size + 1
 			end
@@ -338,7 +339,7 @@ func (r *RDB) memoryUsage(qname string) (int64, error) {
 	}
 	res, err := memoryUsageCmd.Run(context.Background(), r.client, keys, argv...).Result()
 	if err != nil {
-		return 0, errors.E(op, errors.Unknown, fmt.Sprintf("redis eval error: %v", err))
+		return 0, errors.E(op, errors.Unknown, fmt.Sprintf("valkey eval error: %v", err))
 	}
 	usg, err := cast.ToInt64E(res)
 	if err != nil {
@@ -347,10 +348,10 @@ func (r *RDB) memoryUsage(qname string) (int64, error) {
 	return usg, nil
 }
 
-var historicalStatsCmd = redis.NewScript(`
+var historicalStatsCmd = valkey.NewScript(`
 local res = {}
 for _, key in ipairs(KEYS) do
-	local n = redis.call("GET", key)
+	local n = valkey.call("GET", key)
 	if not n then
 		n = 0
 	end
@@ -383,7 +384,7 @@ func (r *RDB) HistoricalStats(qname string, n int) ([]*DailyStats, error) {
 	}
 	res, err := historicalStatsCmd.Run(context.Background(), r.client, keys).Result()
 	if err != nil {
-		return nil, errors.E(op, errors.Unknown, fmt.Sprintf("redis eval error: %v", err))
+		return nil, errors.E(op, errors.Unknown, fmt.Sprintf("valkey eval error: %v", err))
 	}
 	data, err := cast.ToIntSliceE(res)
 	if err != nil {
@@ -401,7 +402,7 @@ func (r *RDB) HistoricalStats(qname string, n int) ([]*DailyStats, error) {
 	return stats, nil
 }
 
-// RedisInfo returns a map of redis info.
+// RedisInfo returns a map of valkey info.
 func (r *RDB) RedisInfo() (map[string]string, error) {
 	res, err := r.client.Info(context.Background()).Result()
 	if err != nil {
@@ -410,7 +411,7 @@ func (r *RDB) RedisInfo() (map[string]string, error) {
 	return parseInfo(res)
 }
 
-// RedisClusterInfo returns a map of redis cluster info.
+// RedisClusterInfo returns a map of valkey cluster info.
 func (r *RDB) RedisClusterInfo() (map[string]string, error) {
 	res, err := r.client.ClusterInfo(context.Background()).Result()
 	if err != nil {
@@ -466,13 +467,13 @@ func (r *RDB) checkQueueExists(qname string) error {
 // result: result data associated with the task
 //
 // If the task key doesn't exist, it returns error with a message "NOT FOUND"
-var getTaskInfoCmd = redis.NewScript(`
-	if redis.call("EXISTS", KEYS[1]) == 0 then
-		return redis.error_reply("NOT FOUND")
+var getTaskInfoCmd = valkey.NewScript(`
+	if valkey.call("EXISTS", KEYS[1]) == 0 then
+		return valkey.error_reply("NOT FOUND")
 	end
-	local msg, state, result = unpack(redis.call("HMGET", KEYS[1], "msg", "state", "result"))
+	local msg, state, result = unpack(valkey.call("HMGET", KEYS[1], "msg", "state", "result"))
 	if state == "scheduled" or state == "retry" then
-		return {msg, state, redis.call("ZSCORE", ARGV[3] .. state, ARGV[1]), result}
+		return {msg, state, valkey.call("ZSCORE", ARGV[3] .. state, ARGV[1]), result}
 	end
 	if state == "pending" then
 		return {msg, state, ARGV[2], result}
@@ -563,11 +564,11 @@ type GroupStat struct {
 //
 // Time Complexity:
 // O(N) where N being the number of groups in the given queue.
-var groupStatsCmd = redis.NewScript(`
+var groupStatsCmd = valkey.NewScript(`
 local res = {}
-local group_names = redis.call("SMEMBERS", KEYS[1])
+local group_names = valkey.call("SMEMBERS", KEYS[1])
 for _, gname in ipairs(group_names) do
-	local size = redis.call("ZCARD", ARGV[1] .. gname)
+	local size = valkey.call("ZCARD", ARGV[1] .. gname)
 	table.insert(res, gname)
 	table.insert(res, size)
 end
@@ -652,12 +653,12 @@ func (r *RDB) ListActive(qname string, pgn Pagination) ([]*base.TaskInfo, error)
 // ARGV[1] -> start offset
 // ARGV[2] -> stop offset
 // ARGV[3] -> task key prefix
-var listMessagesCmd = redis.NewScript(`
-local ids = redis.call("LRange", KEYS[1], ARGV[1], ARGV[2])
+var listMessagesCmd = valkey.NewScript(`
+local ids = valkey.call("LRange", KEYS[1], ARGV[1], ARGV[2])
 local data = {}
 for _, id in ipairs(ids) do
 	local key = ARGV[3] .. id
-	local msg, result = unpack(redis.call("HMGET", key, "msg","result"))
+	local msg, result = unpack(valkey.call("HMGET", key, "msg","result"))
 	table.insert(data, msg)
 	table.insert(data, result)
 end
@@ -675,7 +676,7 @@ func (r *RDB) listMessages(qname string, state base.TaskState, pgn Pagination) (
 	default:
 		panic(fmt.Sprintf("unsupported task state: %v", state))
 	}
-	// Note: Because we use LPUSH to redis list, we need to calculate the
+	// Note: Because we use LPUSH to valkey list, we need to calculate the
 	// correct range and reverse the list to get the tasks with pagination.
 	stop := -pgn.start() - 1
 	start := -pgn.stop() - 1
@@ -813,14 +814,14 @@ func (r *RDB) queueExists(qname string) (bool, error) {
 //
 // Returns an array populated with
 // [msg1, score1, result1, msg2, score2, result2, ..., msgN, scoreN, resultN]
-var listZSetEntriesCmd = redis.NewScript(`
+var listZSetEntriesCmd = valkey.NewScript(`
 local data = {}
-local id_score_pairs = redis.call("ZRANGE", KEYS[1], ARGV[1], ARGV[2], "WITHSCORES")
+local id_score_pairs = valkey.call("ZRANGE", KEYS[1], ARGV[1], ARGV[2], "WITHSCORES")
 for i = 1, table.getn(id_score_pairs), 2 do
 	local id = id_score_pairs[i]
 	local score = id_score_pairs[i+1]
 	local key = ARGV[3] .. id
-	local msg, res = unpack(redis.call("HMGET", key, "msg", "result"))
+	local msg, res = unpack(valkey.call("HMGET", key, "msg", "result"))
 	table.insert(data, msg)
 	table.insert(data, score)
 	table.insert(data, res)
@@ -933,14 +934,14 @@ func (r *RDB) RunAllArchivedTasks(qname string) (int64, error) {
 //
 // Output:
 // integer: number of tasks scheduled to run
-var runAllAggregatingCmd = redis.NewScript(`
-local ids = redis.call("ZRANGE", KEYS[1], 0, -1)
+var runAllAggregatingCmd = valkey.NewScript(`
+local ids = valkey.call("ZRANGE", KEYS[1], 0, -1)
 for _, id in ipairs(ids) do
-	redis.call("LPUSH", KEYS[2], id)
-	redis.call("HSET", ARGV[1] .. id, "state", "pending")
+	valkey.call("LPUSH", KEYS[2], id)
+	valkey.call("HSET", ARGV[1] .. id, "state", "pending")
 end
-redis.call("DEL", KEYS[1])
-redis.call("SREM", KEYS[3], ARGV[2])
+valkey.call("DEL", KEYS[1])
+valkey.call("SREM", KEYS[3], ARGV[2])
 return table.getn(ids)
 `)
 
@@ -990,31 +991,31 @@ func (r *RDB) RunAllAggregatingTasks(qname, gname string) (int64, error) {
 // Returns -1 if task is in active state.
 // Returns -2 if task is in pending state.
 // Returns error reply if unexpected error occurs.
-var runTaskCmd = redis.NewScript(`
-if redis.call("EXISTS", KEYS[1]) == 0 then
+var runTaskCmd = valkey.NewScript(`
+if valkey.call("EXISTS", KEYS[1]) == 0 then
 	return 0
 end
-local state, group = unpack(redis.call("HMGET", KEYS[1], "state", "group"))
+local state, group = unpack(valkey.call("HMGET", KEYS[1], "state", "group"))
 if state == "active" then
 	return -1
 elseif state == "pending" then
 	return -2
 elseif state == "aggregating" then
-	local n = redis.call("ZREM", ARGV[3] .. group, ARGV[1])
+	local n = valkey.call("ZREM", ARGV[3] .. group, ARGV[1])
 	if n == 0 then
-		return redis.error_reply("internal error: task id not found in zset " .. tostring(ARGV[3] .. group))
+		return valkey.error_reply("internal error: task id not found in zset " .. tostring(ARGV[3] .. group))
 	end
-	if redis.call("ZCARD", ARGV[3] .. group) == 0 then
-		redis.call("SREM", KEYS[3], group)
+	if valkey.call("ZCARD", ARGV[3] .. group) == 0 then
+		valkey.call("SREM", KEYS[3], group)
 	end
 else
-	local n = redis.call("ZREM", ARGV[2] .. state, ARGV[1])
+	local n = valkey.call("ZREM", ARGV[2] .. state, ARGV[1])
 	if n == 0 then
-		return redis.error_reply("internal error: task id not found in zset " .. tostring(ARGV[2] .. state))
+		return valkey.error_reply("internal error: task id not found in zset " .. tostring(ARGV[2] .. state))
 	end
 end
-redis.call("LPUSH", KEYS[2], ARGV[1])
-redis.call("HSET", KEYS[1], "state", "pending")
+valkey.call("LPUSH", KEYS[2], ARGV[1])
+valkey.call("HSET", KEYS[1], "state", "pending")
 return 1
 `)
 
@@ -1072,13 +1073,13 @@ func (r *RDB) RunTask(qname, id string) error {
 //
 // Output:
 // integer: number of tasks updated to pending state.
-var runAllCmd = redis.NewScript(`
-local ids = redis.call("ZRANGE", KEYS[1], 0, -1)
+var runAllCmd = valkey.NewScript(`
+local ids = valkey.call("ZRANGE", KEYS[1], 0, -1)
 for _, id in ipairs(ids) do
-	redis.call("LPUSH", KEYS[2], id)
-	redis.call("HSET", ARGV[1] .. id, "state", "pending")
+	valkey.call("LPUSH", KEYS[2], id)
+	valkey.call("HSET", ARGV[1] .. id, "state", "pending")
 end
-redis.call("DEL", KEYS[1])
+valkey.call("DEL", KEYS[1])
 return table.getn(ids)`)
 
 func (r *RDB) runAll(zset, qname string) (int64, error) {
@@ -1151,16 +1152,16 @@ func (r *RDB) ArchiveAllScheduledTasks(qname string) (int64, error) {
 //
 // Output:
 // integer: Number of tasks archived
-var archiveAllAggregatingCmd = redis.NewScript(`
-local ids = redis.call("ZRANGE", KEYS[1], 0, -1)
+var archiveAllAggregatingCmd = valkey.NewScript(`
+local ids = valkey.call("ZRANGE", KEYS[1], 0, -1)
 for _, id in ipairs(ids) do
-	redis.call("ZADD", KEYS[2], ARGV[1], id)
-	redis.call("HSET", ARGV[4] .. id, "state", "archived")
+	valkey.call("ZADD", KEYS[2], ARGV[1], id)
+	valkey.call("HSET", ARGV[4] .. id, "state", "archived")
 end
-redis.call("ZREMRANGEBYSCORE", KEYS[2], "-inf", ARGV[2])
-redis.call("ZREMRANGEBYRANK", KEYS[2], 0, -ARGV[3])
-redis.call("DEL", KEYS[1])
-redis.call("SREM", KEYS[3], ARGV[5])
+valkey.call("ZREMRANGEBYSCORE", KEYS[2], "-inf", ARGV[2])
+valkey.call("ZREMRANGEBYRANK", KEYS[2], 0, -ARGV[3])
+valkey.call("DEL", KEYS[1])
+valkey.call("SREM", KEYS[3], ARGV[5])
 return table.getn(ids)
 `)
 
@@ -1210,15 +1211,15 @@ func (r *RDB) ArchiveAllAggregatingTasks(qname, gname string) (int64, error) {
 //
 // Output:
 // integer: Number of tasks archived
-var archiveAllPendingCmd = redis.NewScript(`
-local ids = redis.call("LRANGE", KEYS[1], 0, -1)
+var archiveAllPendingCmd = valkey.NewScript(`
+local ids = valkey.call("LRANGE", KEYS[1], 0, -1)
 for _, id in ipairs(ids) do
-	redis.call("ZADD", KEYS[2], ARGV[1], id)
-	redis.call("HSET", ARGV[4] .. id, "state", "archived")
+	valkey.call("ZADD", KEYS[2], ARGV[1], id)
+	valkey.call("HSET", ARGV[4] .. id, "state", "archived")
 end
-redis.call("ZREMRANGEBYSCORE", KEYS[2], "-inf", ARGV[2])
-redis.call("ZREMRANGEBYRANK", KEYS[2], 0, -ARGV[3])
-redis.call("DEL", KEYS[1])
+valkey.call("ZREMRANGEBYSCORE", KEYS[2], "-inf", ARGV[2])
+valkey.call("ZREMRANGEBYRANK", KEYS[2], 0, -ARGV[3])
+valkey.call("DEL", KEYS[1])
 return table.getn(ids)`)
 
 // ArchiveAllPendingTasks archives all pending tasks from the given queue and
@@ -1272,11 +1273,11 @@ func (r *RDB) ArchiveAllPendingTasks(qname string) (int64, error) {
 // Returns -1 if task is already archived.
 // Returns -2 if task is in active state.
 // Returns error reply if unexpected error occurs.
-var archiveTaskCmd = redis.NewScript(`
-if redis.call("EXISTS", KEYS[1]) == 0 then
+var archiveTaskCmd = valkey.NewScript(`
+if valkey.call("EXISTS", KEYS[1]) == 0 then
 	return 0
 end
-local state, group = unpack(redis.call("HMGET", KEYS[1], "state", "group"))
+local state, group = unpack(valkey.call("HMGET", KEYS[1], "state", "group"))
 if state == "active" then
 	return -2
 end
@@ -1284,25 +1285,25 @@ if state == "archived" then
 	return -1
 end
 if state == "pending" then
-	if redis.call("LREM", ARGV[5] .. state, 1, ARGV[1]) == 0 then
-		return redis.error_reply("task id not found in list " .. tostring(ARGV[5] .. state))
+	if valkey.call("LREM", ARGV[5] .. state, 1, ARGV[1]) == 0 then
+		return valkey.error_reply("task id not found in list " .. tostring(ARGV[5] .. state))
 	end
 elseif state == "aggregating" then
-	if redis.call("ZREM", ARGV[6] .. group, ARGV[1]) == 0 then
-		return redis.error_reply("task id not found in zset " .. tostring(ARGV[6] .. group))
+	if valkey.call("ZREM", ARGV[6] .. group, ARGV[1]) == 0 then
+		return valkey.error_reply("task id not found in zset " .. tostring(ARGV[6] .. group))
 	end
-	if redis.call("ZCARD", ARGV[6] .. group) == 0 then
-		redis.call("SREM", KEYS[3], group)
+	if valkey.call("ZCARD", ARGV[6] .. group) == 0 then
+		valkey.call("SREM", KEYS[3], group)
 	end
 else
-	if redis.call("ZREM", ARGV[5] .. state, ARGV[1]) == 0 then
-		return redis.error_reply("task id not found in zset " .. tostring(ARGV[5] .. state))
+	if valkey.call("ZREM", ARGV[5] .. state, ARGV[1]) == 0 then
+		return valkey.error_reply("task id not found in zset " .. tostring(ARGV[5] .. state))
 	end
 end
-redis.call("ZADD", KEYS[2], ARGV[2], ARGV[1])
-redis.call("HSET", KEYS[1], "state", "archived")
-redis.call("ZREMRANGEBYSCORE", KEYS[2], "-inf", ARGV[3])
-redis.call("ZREMRANGEBYRANK", KEYS[2], 0, -ARGV[4])
+valkey.call("ZADD", KEYS[2], ARGV[2], ARGV[1])
+valkey.call("HSET", KEYS[1], "state", "archived")
+valkey.call("ZREMRANGEBYSCORE", KEYS[2], "-inf", ARGV[3])
+valkey.call("ZREMRANGEBYRANK", KEYS[2], 0, -ARGV[4])
 return 1
 `)
 
@@ -1370,15 +1371,15 @@ func (r *RDB) ArchiveTask(qname, id string) error {
 //
 // Output:
 // integer: number of tasks archived
-var archiveAllCmd = redis.NewScript(`
-local ids = redis.call("ZRANGE", KEYS[1], 0, -1)
+var archiveAllCmd = valkey.NewScript(`
+local ids = valkey.call("ZRANGE", KEYS[1], 0, -1)
 for _, id in ipairs(ids) do
-	redis.call("ZADD", KEYS[2], ARGV[1], id)
-	redis.call("HSET", ARGV[4] .. id, "state", "archived")
+	valkey.call("ZADD", KEYS[2], ARGV[1], id)
+	valkey.call("HSET", ARGV[4] .. id, "state", "archived")
 end
-redis.call("ZREMRANGEBYSCORE", KEYS[2], "-inf", ARGV[2])
-redis.call("ZREMRANGEBYRANK", KEYS[2], 0, -ARGV[3])
-redis.call("DEL", KEYS[1])
+valkey.call("ZREMRANGEBYSCORE", KEYS[2], "-inf", ARGV[2])
+valkey.call("ZREMRANGEBYRANK", KEYS[2], 0, -ARGV[3])
+valkey.call("DEL", KEYS[1])
 return table.getn(ids)`)
 
 func (r *RDB) archiveAll(src, dst, qname string) (int64, error) {
@@ -1424,35 +1425,35 @@ func (r *RDB) archiveAll(src, dst, qname string) (int64, error) {
 // Returns 1 if task is successfully deleted.
 // Returns 0 if task is not found.
 // Returns -1 if task is in active state.
-var deleteTaskCmd = redis.NewScript(`
-if redis.call("EXISTS", KEYS[1]) == 0 then
+var deleteTaskCmd = valkey.NewScript(`
+if valkey.call("EXISTS", KEYS[1]) == 0 then
 	return 0
 end
-local state, group = unpack(redis.call("HMGET", KEYS[1], "state", "group"))
+local state, group = unpack(valkey.call("HMGET", KEYS[1], "state", "group"))
 if state == "active" then
 	return -1
 end
 if state == "pending" then
-	if redis.call("LREM", ARGV[2] .. state, 0, ARGV[1]) == 0 then
-		return redis.error_reply("task is not found in list: " .. tostring(ARGV[2] .. state))
+	if valkey.call("LREM", ARGV[2] .. state, 0, ARGV[1]) == 0 then
+		return valkey.error_reply("task is not found in list: " .. tostring(ARGV[2] .. state))
 	end
 elseif state == "aggregating" then
-	if redis.call("ZREM", ARGV[3] .. group, ARGV[1]) == 0 then
-		return redis.error_reply("task is not found in zset: " .. tostring(ARGV[3] .. group))
+	if valkey.call("ZREM", ARGV[3] .. group, ARGV[1]) == 0 then
+		return valkey.error_reply("task is not found in zset: " .. tostring(ARGV[3] .. group))
 	end
-	if redis.call("ZCARD", ARGV[3] .. group) == 0 then
-		redis.call("SREM", KEYS[2], group)
+	if valkey.call("ZCARD", ARGV[3] .. group) == 0 then
+		valkey.call("SREM", KEYS[2], group)
 	end
 else
-	if redis.call("ZREM", ARGV[2] .. state, ARGV[1]) == 0 then
-		return redis.error_reply("task is not found in zset: " .. tostring(ARGV[2] .. state))
+	if valkey.call("ZREM", ARGV[2] .. state, ARGV[1]) == 0 then
+		return valkey.error_reply("task is not found in zset: " .. tostring(ARGV[2] .. state))
 	end
 end
-local unique_key = redis.call("HGET", KEYS[1], "unique_key")
-if unique_key and unique_key ~= "" and redis.call("GET", unique_key) == ARGV[1] then
-	redis.call("DEL", unique_key)
+local unique_key = valkey.call("HGET", KEYS[1], "unique_key")
+if unique_key and unique_key ~= "" and valkey.call("GET", unique_key) == ARGV[1] then
+	valkey.call("DEL", unique_key)
 end
-return redis.call("DEL", KEYS[1])
+return valkey.call("DEL", KEYS[1])
 `)
 
 // DeleteTask finds a task that matches the id from the given queue and deletes it.
@@ -1560,17 +1561,17 @@ func (r *RDB) DeleteAllCompletedTasks(qname string) (int64, error) {
 //
 // Output:
 // integer: number of tasks deleted
-var deleteAllCmd = redis.NewScript(`
-local ids = redis.call("ZRANGE", KEYS[1], 0, -1)
+var deleteAllCmd = valkey.NewScript(`
+local ids = valkey.call("ZRANGE", KEYS[1], 0, -1)
 for _, id in ipairs(ids) do
 	local task_key = ARGV[1] .. id
-	local unique_key = redis.call("HGET", task_key, "unique_key")
-	if unique_key and unique_key ~= "" and redis.call("GET", unique_key) == id then
-		redis.call("DEL", unique_key)
+	local unique_key = valkey.call("HGET", task_key, "unique_key")
+	if unique_key and unique_key ~= "" and valkey.call("GET", unique_key) == id then
+		valkey.call("DEL", unique_key)
 	end
-	redis.call("DEL", task_key)
+	valkey.call("DEL", task_key)
 end
-redis.call("DEL", KEYS[1])
+valkey.call("DEL", KEYS[1])
 return table.getn(ids)`)
 
 func (r *RDB) deleteAll(key, qname string) (int64, error) {
@@ -1600,13 +1601,13 @@ func (r *RDB) deleteAll(key, qname string) (int64, error) {
 // -------
 // ARGV[1] -> task key prefix
 // ARGV[2] -> group name
-var deleteAllAggregatingCmd = redis.NewScript(`
-local ids = redis.call("ZRANGE", KEYS[1], 0, -1)
+var deleteAllAggregatingCmd = valkey.NewScript(`
+local ids = valkey.call("ZRANGE", KEYS[1], 0, -1)
 for _, id in ipairs(ids) do
-	redis.call("DEL", ARGV[1] .. id)
+	valkey.call("DEL", ARGV[1] .. id)
 end
-redis.call("SREM", KEYS[2], ARGV[2])
-redis.call("DEL", KEYS[1])
+valkey.call("SREM", KEYS[2], ARGV[2])
+valkey.call("DEL", KEYS[1])
 return table.getn(ids)
 `)
 
@@ -1645,12 +1646,12 @@ func (r *RDB) DeleteAllAggregatingTasks(qname, gname string) (int64, error) {
 //
 // Output:
 // integer: number of tasks deleted
-var deleteAllPendingCmd = redis.NewScript(`
-local ids = redis.call("LRANGE", KEYS[1], 0, -1)
+var deleteAllPendingCmd = valkey.NewScript(`
+local ids = valkey.call("LRANGE", KEYS[1], 0, -1)
 for _, id in ipairs(ids) do
-	redis.call("DEL", ARGV[1] .. id)
+	valkey.call("DEL", ARGV[1] .. id)
 end
-redis.call("DEL", KEYS[1])
+valkey.call("DEL", KEYS[1])
 return table.getn(ids)`)
 
 // DeleteAllPendingTasks deletes all pending tasks from the given queue
@@ -1695,47 +1696,47 @@ func (r *RDB) DeleteAllPendingTasks(qname string) (int64, error) {
 // Numeric code to indicate the status.
 // Returns 1 if successfully removed.
 // Returns -2 if the queue has active tasks.
-var removeQueueForceCmd = redis.NewScript(`
-local active = redis.call("LLEN", KEYS[2])
+var removeQueueForceCmd = valkey.NewScript(`
+local active = valkey.call("LLEN", KEYS[2])
 if active > 0 then
     return -2
 end
-for _, id in ipairs(redis.call("LRANGE", KEYS[1], 0, -1)) do
-	redis.call("DEL", ARGV[1] .. id)
+for _, id in ipairs(valkey.call("LRANGE", KEYS[1], 0, -1)) do
+	valkey.call("DEL", ARGV[1] .. id)
 end
-for _, id in ipairs(redis.call("LRANGE", KEYS[2], 0, -1)) do
-	redis.call("DEL", ARGV[1] .. id)
+for _, id in ipairs(valkey.call("LRANGE", KEYS[2], 0, -1)) do
+	valkey.call("DEL", ARGV[1] .. id)
 end
-for _, id in ipairs(redis.call("ZRANGE", KEYS[3], 0, -1)) do
-	redis.call("DEL", ARGV[1] .. id)
+for _, id in ipairs(valkey.call("ZRANGE", KEYS[3], 0, -1)) do
+	valkey.call("DEL", ARGV[1] .. id)
 end
-for _, id in ipairs(redis.call("ZRANGE", KEYS[4], 0, -1)) do
-	redis.call("DEL", ARGV[1] .. id)
+for _, id in ipairs(valkey.call("ZRANGE", KEYS[4], 0, -1)) do
+	valkey.call("DEL", ARGV[1] .. id)
 end
-for _, id in ipairs(redis.call("ZRANGE", KEYS[5], 0, -1)) do
-	redis.call("DEL", ARGV[1] .. id)
+for _, id in ipairs(valkey.call("ZRANGE", KEYS[5], 0, -1)) do
+	valkey.call("DEL", ARGV[1] .. id)
 end
-for _, id in ipairs(redis.call("LRANGE", KEYS[1], 0, -1)) do
-	redis.call("DEL", ARGV[1] .. id)
+for _, id in ipairs(valkey.call("LRANGE", KEYS[1], 0, -1)) do
+	valkey.call("DEL", ARGV[1] .. id)
 end
-for _, id in ipairs(redis.call("LRANGE", KEYS[2], 0, -1)) do
-	redis.call("DEL", ARGV[1] .. id)
+for _, id in ipairs(valkey.call("LRANGE", KEYS[2], 0, -1)) do
+	valkey.call("DEL", ARGV[1] .. id)
 end
-for _, id in ipairs(redis.call("ZRANGE", KEYS[3], 0, -1)) do
-	redis.call("DEL", ARGV[1] .. id)
+for _, id in ipairs(valkey.call("ZRANGE", KEYS[3], 0, -1)) do
+	valkey.call("DEL", ARGV[1] .. id)
 end
-for _, id in ipairs(redis.call("ZRANGE", KEYS[4], 0, -1)) do
-	redis.call("DEL", ARGV[1] .. id)
+for _, id in ipairs(valkey.call("ZRANGE", KEYS[4], 0, -1)) do
+	valkey.call("DEL", ARGV[1] .. id)
 end
-for _, id in ipairs(redis.call("ZRANGE", KEYS[5], 0, -1)) do
-	redis.call("DEL", ARGV[1] .. id)
+for _, id in ipairs(valkey.call("ZRANGE", KEYS[5], 0, -1)) do
+	valkey.call("DEL", ARGV[1] .. id)
 end
-redis.call("DEL", KEYS[1])
-redis.call("DEL", KEYS[2])
-redis.call("DEL", KEYS[3])
-redis.call("DEL", KEYS[4])
-redis.call("DEL", KEYS[5])
-redis.call("DEL", KEYS[6])
+valkey.call("DEL", KEYS[1])
+valkey.call("DEL", KEYS[2])
+valkey.call("DEL", KEYS[3])
+valkey.call("DEL", KEYS[4])
+valkey.call("DEL", KEYS[5])
+valkey.call("DEL", KEYS[6])
 return 1`)
 
 // removeQueueCmd removes the given queue.
@@ -1755,38 +1756,38 @@ return 1`)
 // Numeric code to indicate the status
 // Returns 1 if successfully removed.
 // Returns -1 if queue is not empty
-var removeQueueCmd = redis.NewScript(`
+var removeQueueCmd = valkey.NewScript(`
 local ids = {}
-for _, id in ipairs(redis.call("LRANGE", KEYS[1], 0, -1)) do
+for _, id in ipairs(valkey.call("LRANGE", KEYS[1], 0, -1)) do
 	table.insert(ids, id)
 end
-for _, id in ipairs(redis.call("LRANGE", KEYS[2], 0, -1)) do
+for _, id in ipairs(valkey.call("LRANGE", KEYS[2], 0, -1)) do
 	table.insert(ids, id)
 end
-for _, id in ipairs(redis.call("ZRANGE", KEYS[3], 0, -1)) do
+for _, id in ipairs(valkey.call("ZRANGE", KEYS[3], 0, -1)) do
 	table.insert(ids, id)
 end
-for _, id in ipairs(redis.call("ZRANGE", KEYS[4], 0, -1)) do
+for _, id in ipairs(valkey.call("ZRANGE", KEYS[4], 0, -1)) do
 	table.insert(ids, id)
 end
-for _, id in ipairs(redis.call("ZRANGE", KEYS[5], 0, -1)) do
+for _, id in ipairs(valkey.call("ZRANGE", KEYS[5], 0, -1)) do
 	table.insert(ids, id)
 end
 if table.getn(ids) > 0 then
 	return -1
 end
 for _, id in ipairs(ids) do
-	redis.call("DEL", ARGV[1] .. id)
+	valkey.call("DEL", ARGV[1] .. id)
 end
 for _, id in ipairs(ids) do
-	redis.call("DEL", ARGV[1] .. id)
+	valkey.call("DEL", ARGV[1] .. id)
 end
-redis.call("DEL", KEYS[1])
-redis.call("DEL", KEYS[2])
-redis.call("DEL", KEYS[3])
-redis.call("DEL", KEYS[4])
-redis.call("DEL", KEYS[5])
-redis.call("DEL", KEYS[6])
+valkey.call("DEL", KEYS[1])
+valkey.call("DEL", KEYS[2])
+valkey.call("DEL", KEYS[3])
+valkey.call("DEL", KEYS[4])
+valkey.call("DEL", KEYS[5])
+valkey.call("DEL", KEYS[6])
 return 1`)
 
 // RemoveQueue removes the specified queue.
@@ -1804,7 +1805,7 @@ func (r *RDB) RemoveQueue(qname string, force bool) error {
 	if !exists {
 		return errors.E(op, errors.NotFound, &errors.QueueNotFoundError{Queue: qname})
 	}
-	var script *redis.Script
+	var script *valkey.Script
 	if force {
 		script = removeQueueForceCmd
 	} else {
@@ -1842,10 +1843,10 @@ func (r *RDB) RemoveQueue(qname string, force bool) error {
 }
 
 // Note: Script also removes stale keys.
-var listServerKeysCmd = redis.NewScript(`
+var listServerKeysCmd = valkey.NewScript(`
 local now = tonumber(ARGV[1])
-local keys = redis.call("ZRANGEBYSCORE", KEYS[1], now, "+inf")
-redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", now-1)
+local keys = valkey.call("ZRANGEBYSCORE", KEYS[1], now, "+inf")
+valkey.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", now-1)
 return keys`)
 
 // ListServers returns the list of server info.
@@ -1875,10 +1876,10 @@ func (r *RDB) ListServers() ([]*base.ServerInfo, error) {
 }
 
 // Note: Script also removes stale keys.
-var listWorkersCmd = redis.NewScript(`
+var listWorkersCmd = valkey.NewScript(`
 local now = tonumber(ARGV[1])
-local keys = redis.call("ZRANGEBYSCORE", KEYS[1], now, "+inf")
-redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", now-1)
+local keys = valkey.call("ZRANGEBYSCORE", KEYS[1], now, "+inf")
+valkey.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", now-1)
 return keys`)
 
 // ListWorkers returns the list of worker stats.
@@ -1911,10 +1912,10 @@ func (r *RDB) ListWorkers() ([]*base.WorkerInfo, error) {
 }
 
 // Note: Script also removes stale keys.
-var listSchedulerKeysCmd = redis.NewScript(`
+var listSchedulerKeysCmd = valkey.NewScript(`
 local now = tonumber(ARGV[1])
-local keys = redis.call("ZRANGEBYSCORE", KEYS[1], now, "+inf")
-redis.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", now-1)
+local keys = valkey.call("ZRANGEBYSCORE", KEYS[1], now, "+inf")
+valkey.call("ZREMRANGEBYSCORE", KEYS[1], "-inf", now-1)
 return keys`)
 
 // ListSchedulerEntries returns the list of scheduler entries.
@@ -2000,7 +2001,7 @@ func (r *RDB) ClusterKeySlot(qname string) (int64, error) {
 }
 
 // ClusterNodes returns a list of nodes the given queue belongs to.
-func (r *RDB) ClusterNodes(qname string) ([]redis.ClusterNode, error) {
+func (r *RDB) ClusterNodes(qname string) ([]valkey.ClusterNode, error) {
 	keyslot, err := r.ClusterKeySlot(qname)
 	if err != nil {
 		return nil, err

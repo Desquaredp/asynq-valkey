@@ -8,13 +8,14 @@ package testbroker
 import (
 	"context"
 	"errors"
+	valkey "github.com/Desquaredp/go-valkey"
 	"sync"
 	"time"
 
 	"github.com/Desquaredp/asynq-valkey/internal/base"
 )
 
-var errRedisDown = errors.New("testutil: redis is down")
+var errRedisDown = errors.New("testutil: valkey is down")
 
 // TestBroker is a broker implementation which enables
 // to simulate Redis failure in tests.
@@ -189,7 +190,7 @@ func (tb *TestBroker) ClearServerState(host string, pid int, serverID string) er
 	return tb.real.ClearServerState(host, pid, serverID)
 }
 
-func (tb *TestBroker) CancelationPubSub() (*redis.PubSub, error) {
+func (tb *TestBroker) CancelationPubSub() (*valkey.PubSub, error) {
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
 	if tb.sleeping {

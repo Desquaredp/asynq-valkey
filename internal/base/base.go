@@ -10,6 +10,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	valkey "github.com/Desquaredp/go-valkey"
 	"strings"
 	"sync"
 	"time"
@@ -747,7 +748,7 @@ type Broker interface {
 	ClearServerState(host string, pid int, serverID string) error
 
 	// Cancelation related methods
-	CancelationPubSub() (*redis.PubSub, error) // TODO: Need to decouple from redis to support other brokers
+	CancelationPubSub() (*valkey.PubSub, error) // TODO: Need to decouple from redis to support other brokers
 	PublishCancelation(id string) error
 
 	WriteResult(qname, id string, data []byte) (n int, err error)

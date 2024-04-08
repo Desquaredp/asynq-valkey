@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	valkey "github.com/Desquaredp/go-valkey"
 	"math"
 	"math/rand"
 	"runtime"
@@ -107,7 +108,7 @@ type Config struct {
 	//
 	// If unset, zero or a negative value, the interval is set to 1 second.
 	//
-	// Note: Setting this value too low may add significant load to redis.
+	// Note: Setting this value too low may add significant load to valkey.
 	//
 	// By default, TaskCheckInterval is set to 1 seconds.
 	TaskCheckInterval time.Duration
@@ -199,7 +200,7 @@ type Config struct {
 	ShutdownTimeout time.Duration
 
 	// HealthCheckFunc is called periodically with any errors encountered during ping to the
-	// connected redis server.
+	// connected valkey server.
 	HealthCheckFunc func(error)
 
 	// HealthCheckInterval specifies the interval between healthchecks.
@@ -409,10 +410,10 @@ const (
 	defaultGroupGracePeriod = 1 * time.Minute
 )
 
-// NewServer returns a new Server given a redis connection option
+// NewServer returns a new Server given a valkey connection option
 // and server configuration.
 func NewServer(r ValkeyConnOpt, cfg Config) *Server {
-	c, ok := r.MakeValkeyClient().(redis.UniversalClient)
+	c, ok := r.MakeValkeyClient().(valkey.UniversalClient)
 	if !ok {
 		panic(fmt.Sprintf("asynq: unsupported ValkeyConnOpt type %T", r))
 	}

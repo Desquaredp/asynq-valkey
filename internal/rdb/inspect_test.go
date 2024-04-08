@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	redis "github.com/Desquaredp/go-valkey"
 	"sort"
 	"testing"
 	"time"

@@ -5,11 +5,12 @@
 package asynq
 
 import (
+	"github.com/Desquaredp/asynq-valkey/internal/base"
+	valkey "github.com/Desquaredp/go-valkey"
 	"sync"
 	"time"
 
 	"github.com/Desquaredp/asynq-valkey/internal/log"
-	"github.com/redis/go-redis/v9"
 )
 
 type subscriber struct {
@@ -22,7 +23,7 @@ type subscriber struct {
 	// cancelations hold cancel functions for all active tasks.
 	cancelations *base.Cancelations
 
-	// time to wait before retrying to connect to redis.
+	// time to wait before retrying to connect to valkey.
 	retryTimeout time.Duration
 }
 
@@ -53,7 +54,7 @@ func (s *subscriber) start(wg *sync.WaitGroup) {
 	go func() {
 		defer wg.Done()
 		var (
-			pubsub *redis.PubSub
+			pubsub *valkey.PubSub
 			err    error
 		)
 		// Try until successfully connect to Redis.

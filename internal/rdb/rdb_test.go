@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	valkey "github.com/Desquaredp/go-valkey"
 	"math"
 	"strconv"
 	"strings"
@@ -34,10 +35,10 @@ var (
 )
 
 func init() {
-	flag.StringVar(&redisAddr, "redis_addr", "localhost:6379", "redis address to use in testing")
-	flag.IntVar(&redisDB, "redis_db", 15, "redis db number to use in testing")
-	flag.BoolVar(&useRedisCluster, "redis_cluster", false, "use redis cluster as a broker in testing")
-	flag.StringVar(&redisClusterAddrs, "redis_cluster_addrs", "localhost:7000,localhost:7001,localhost:7002", "comma separated list of redis server addresses")
+	flag.StringVar(&redisAddr, "redis_addr", "localhost:6379", "valkey address to use in testing")
+	flag.IntVar(&redisDB, "redis_db", 15, "valkey db number to use in testing")
+	flag.BoolVar(&useRedisCluster, "redis_cluster", false, "use valkey cluster as a broker in testing")
+	flag.StringVar(&redisClusterAddrs, "redis_cluster_addrs", "localhost:7000,localhost:7001,localhost:7002", "comma separated list of valkey server addresses")
 }
 
 func setup(tb testing.TB) (r *RDB) {
@@ -45,13 +46,13 @@ func setup(tb testing.TB) (r *RDB) {
 	if useRedisCluster {
 		addrs := strings.Split(redisClusterAddrs, ",")
 		if len(addrs) == 0 {
-			tb.Fatal("No redis cluster addresses provided. Please set addresses using --redis_cluster_addrs flag.")
+			tb.Fatal("No valkey cluster addresses provided. Please set addresses using --redis_cluster_addrs flag.")
 		}
-		r = NewRDB(redis.NewClusterClient(&redis.ClusterOptions{
+		r = NewRDB(valkey.NewClusterClient(&valkey.ClusterOptions{
 			Addrs: addrs,
 		}))
 	} else {
-		r = NewRDB(redis.NewClient(&redis.Options{
+		r = NewRDB(valkey.NewClient(&valkey.Options{
 			Addr: redisAddr,
 			DB:   redisDB,
 		}))
@@ -3118,7 +3119,7 @@ func TestAggregationCheck(t *testing.T) {
 		desc string
 		// initial data
 		tasks     []*h.TaskSeedData
-		groups    map[string][]redis.Z
+		groups    map[string][]valkey.Z
 		allGroups map[string][]string
 
 		// args
@@ -3131,13 +3132,13 @@ func TestAggregationCheck(t *testing.T) {
 		// expectaions
 		shouldCreateSet    bool // whether the check should create a new aggregation set
 		wantAggregationSet []*base.TaskMessage
-		wantGroups         map[string][]redis.Z
-		shouldClearGroup   bool // whether the check should clear the group from redis
+		wantGroups         map[string][]valkey.Z
+		shouldClearGroup   bool // whether the check should clear the group from valkey
 	}{
 		{
 			desc:  "with an empty group",
 			tasks: []*h.TaskSeedData{},
-			groups: map[string][]redis.Z{
+			groups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {},
 			},
 			allGroups: map[string][]string{
@@ -3150,7 +3151,7 @@ func TestAggregationCheck(t *testing.T) {
 			maxSize:            5,
 			shouldCreateSet:    false,
 			wantAggregationSet: nil,
-			wantGroups: map[string][]redis.Z{
+			wantGroups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {},
 			},
 			shouldClearGroup: true,
@@ -3164,7 +3165,7 @@ func TestAggregationCheck(t *testing.T) {
 				{Msg: msg4, State: base.TaskStateAggregating},
 				{Msg: msg5, State: base.TaskStateAggregating},
 			},
-			groups: map[string][]redis.Z{
+			groups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {
 					{Member: msg1.ID, Score: float64(now.Add(-5 * time.Minute).Unix())},
 					{Member: msg2.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
@@ -3183,7 +3184,7 @@ func TestAggregationCheck(t *testing.T) {
 			maxSize:            5,
 			shouldCreateSet:    true,
 			wantAggregationSet: []*base.TaskMessage{msg1, msg2, msg3, msg4, msg5},
-			wantGroups: map[string][]redis.Z{
+			wantGroups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {},
 			},
 			shouldClearGroup: true,
@@ -3197,7 +3198,7 @@ func TestAggregationCheck(t *testing.T) {
 				{Msg: msg4, State: base.TaskStateAggregating},
 				{Msg: msg5, State: base.TaskStateAggregating},
 			},
-			groups: map[string][]redis.Z{
+			groups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {
 					{Member: msg1.ID, Score: float64(now.Add(-5 * time.Minute).Unix())},
 					{Member: msg2.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
@@ -3216,7 +3217,7 @@ func TestAggregationCheck(t *testing.T) {
 			maxSize:            3,
 			shouldCreateSet:    true,
 			wantAggregationSet: []*base.TaskMessage{msg1, msg2, msg3},
-			wantGroups: map[string][]redis.Z{
+			wantGroups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {
 					{Member: msg4.ID, Score: float64(now.Add(-1 * time.Minute).Unix())},
 					{Member: msg5.ID, Score: float64(now.Add(-10 * time.Second).Unix())},
@@ -3231,7 +3232,7 @@ func TestAggregationCheck(t *testing.T) {
 				{Msg: msg2, State: base.TaskStateAggregating},
 				{Msg: msg3, State: base.TaskStateAggregating},
 			},
-			groups: map[string][]redis.Z{
+			groups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {
 					{Member: msg1.ID, Score: float64(now.Add(-5 * time.Minute).Unix())},
 					{Member: msg2.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
@@ -3248,7 +3249,7 @@ func TestAggregationCheck(t *testing.T) {
 			maxSize:            5,
 			shouldCreateSet:    true,
 			wantAggregationSet: []*base.TaskMessage{msg1, msg2, msg3},
-			wantGroups: map[string][]redis.Z{
+			wantGroups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {},
 			},
 			shouldClearGroup: true,
@@ -3262,7 +3263,7 @@ func TestAggregationCheck(t *testing.T) {
 				{Msg: msg4, State: base.TaskStateAggregating},
 				{Msg: msg5, State: base.TaskStateAggregating},
 			},
-			groups: map[string][]redis.Z{
+			groups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {
 					{Member: msg1.ID, Score: float64(now.Add(-15 * time.Minute).Unix())},
 					{Member: msg2.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
@@ -3281,7 +3282,7 @@ func TestAggregationCheck(t *testing.T) {
 			maxSize:            30,
 			shouldCreateSet:    true,
 			wantAggregationSet: []*base.TaskMessage{msg1, msg2, msg3, msg4, msg5},
-			wantGroups: map[string][]redis.Z{
+			wantGroups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {},
 			},
 			shouldClearGroup: true,
@@ -3295,7 +3296,7 @@ func TestAggregationCheck(t *testing.T) {
 				{Msg: msg4, State: base.TaskStateAggregating},
 				{Msg: msg5, State: base.TaskStateAggregating},
 			},
-			groups: map[string][]redis.Z{
+			groups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {
 					{Member: msg1.ID, Score: float64(now.Add(-15 * time.Minute).Unix())},
 					{Member: msg2.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
@@ -3314,7 +3315,7 @@ func TestAggregationCheck(t *testing.T) {
 			maxSize:            0, // maxSize=0 indicates no size limit
 			shouldCreateSet:    false,
 			wantAggregationSet: nil,
-			wantGroups: map[string][]redis.Z{
+			wantGroups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {
 					{Member: msg1.ID, Score: float64(now.Add(-15 * time.Minute).Unix())},
 					{Member: msg2.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
@@ -3334,7 +3335,7 @@ func TestAggregationCheck(t *testing.T) {
 				{Msg: msg4, State: base.TaskStateAggregating},
 				{Msg: msg5, State: base.TaskStateAggregating},
 			},
-			groups: map[string][]redis.Z{
+			groups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {
 					{Member: msg1.ID, Score: float64(now.Add(-15 * time.Minute).Unix())},
 					{Member: msg2.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
@@ -3353,7 +3354,7 @@ func TestAggregationCheck(t *testing.T) {
 			maxSize:            0, // maxSize=0 indicates no size limit
 			shouldCreateSet:    true,
 			wantAggregationSet: []*base.TaskMessage{msg1, msg2, msg3, msg4, msg5},
-			wantGroups: map[string][]redis.Z{
+			wantGroups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {},
 			},
 			shouldClearGroup: true,
@@ -3367,7 +3368,7 @@ func TestAggregationCheck(t *testing.T) {
 				{Msg: msg4, State: base.TaskStateAggregating},
 				{Msg: msg5, State: base.TaskStateAggregating},
 			},
-			groups: map[string][]redis.Z{
+			groups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {
 					{Member: msg1.ID, Score: float64(now.Add(-15 * time.Minute).Unix())},
 					{Member: msg2.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
@@ -3386,7 +3387,7 @@ func TestAggregationCheck(t *testing.T) {
 			maxSize:            10,
 			shouldCreateSet:    false,
 			wantAggregationSet: nil,
-			wantGroups: map[string][]redis.Z{
+			wantGroups: map[string][]valkey.Z{
 				base.GroupKey("default", "mygroup"): {
 					{Member: msg1.ID, Score: float64(now.Add(-15 * time.Minute).Unix())},
 					{Member: msg2.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
@@ -3469,8 +3470,8 @@ func TestDeleteAggregationSet(t *testing.T) {
 		desc string
 		// initial data
 		tasks              []*h.TaskSeedData
-		aggregationSets    map[string][]redis.Z
-		allAggregationSets map[string][]redis.Z
+		aggregationSets    map[string][]valkey.Z
+		allAggregationSets map[string][]valkey.Z
 
 		// args
 		ctx   context.Context
@@ -3479,9 +3480,9 @@ func TestDeleteAggregationSet(t *testing.T) {
 		setID string
 
 		// expectations
-		wantDeletedKeys        []string // redis key to check for non existence
-		wantAggregationSets    map[string][]redis.Z
-		wantAllAggregationSets map[string][]redis.Z
+		wantDeletedKeys        []string // valkey key to check for non existence
+		wantAggregationSets    map[string][]valkey.Z
+		wantAllAggregationSets map[string][]valkey.Z
 	}{
 		{
 			desc: "with a sigle active aggregation set",
@@ -3490,14 +3491,14 @@ func TestDeleteAggregationSet(t *testing.T) {
 				{Msg: m2, State: base.TaskStateAggregating},
 				{Msg: m3, State: base.TaskStateAggregating},
 			},
-			aggregationSets: map[string][]redis.Z{
+			aggregationSets: map[string][]valkey.Z{
 				base.AggregationSetKey("default", "mygroup", setID): {
 					{Member: m1.ID, Score: float64(now.Add(-5 * time.Minute).Unix())},
 					{Member: m2.ID, Score: float64(now.Add(-4 * time.Minute).Unix())},
 					{Member: m3.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
 				},
 			},
-			allAggregationSets: map[string][]redis.Z{
+			allAggregationSets: map[string][]valkey.Z{
 				base.AllAggregationSets("default"): {
 					{Member: base.AggregationSetKey("default", "mygroup", setID), Score: float64(now.Add(aggregationTimeout).Unix())},
 				},
@@ -3512,8 +3513,8 @@ func TestDeleteAggregationSet(t *testing.T) {
 				base.TaskKey(m2.Queue, m2.ID),
 				base.TaskKey(m3.Queue, m3.ID),
 			},
-			wantAggregationSets: map[string][]redis.Z{},
-			wantAllAggregationSets: map[string][]redis.Z{
+			wantAggregationSets: map[string][]valkey.Z{},
+			wantAllAggregationSets: map[string][]valkey.Z{
 				base.AllAggregationSets("default"): {},
 			},
 		},
@@ -3524,7 +3525,7 @@ func TestDeleteAggregationSet(t *testing.T) {
 				{Msg: m2, State: base.TaskStateAggregating},
 				{Msg: m3, State: base.TaskStateAggregating},
 			},
-			aggregationSets: map[string][]redis.Z{
+			aggregationSets: map[string][]valkey.Z{
 				base.AggregationSetKey("default", "mygroup", setID): {
 					{Member: m1.ID, Score: float64(now.Add(-5 * time.Minute).Unix())},
 				},
@@ -3533,7 +3534,7 @@ func TestDeleteAggregationSet(t *testing.T) {
 					{Member: m3.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
 				},
 			},
-			allAggregationSets: map[string][]redis.Z{
+			allAggregationSets: map[string][]valkey.Z{
 				base.AllAggregationSets("default"): {
 					{Member: base.AggregationSetKey("default", "mygroup", setID), Score: float64(now.Add(aggregationTimeout).Unix())},
 					{Member: base.AggregationSetKey("default", "mygroup", otherSetID), Score: float64(now.Add(aggregationTimeout).Unix())},
@@ -3547,13 +3548,13 @@ func TestDeleteAggregationSet(t *testing.T) {
 				base.AggregationSetKey("default", "mygroup", setID),
 				base.TaskKey(m1.Queue, m1.ID),
 			},
-			wantAggregationSets: map[string][]redis.Z{
+			wantAggregationSets: map[string][]valkey.Z{
 				base.AggregationSetKey("default", "mygroup", otherSetID): {
 					{Member: m2.ID, Score: float64(now.Add(-4 * time.Minute).Unix())},
 					{Member: m3.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
 				},
 			},
-			wantAllAggregationSets: map[string][]redis.Z{
+			wantAllAggregationSets: map[string][]valkey.Z{
 				base.AllAggregationSets("default"): {
 					{Member: base.AggregationSetKey("default", "mygroup", otherSetID), Score: float64(now.Add(aggregationTimeout).Unix())},
 				},
@@ -3598,8 +3599,8 @@ func TestDeleteAggregationSetError(t *testing.T) {
 		desc string
 		// initial data
 		tasks              []*h.TaskSeedData
-		aggregationSets    map[string][]redis.Z
-		allAggregationSets map[string][]redis.Z
+		aggregationSets    map[string][]valkey.Z
+		allAggregationSets map[string][]valkey.Z
 
 		// args
 		ctx   context.Context
@@ -3608,8 +3609,8 @@ func TestDeleteAggregationSetError(t *testing.T) {
 		setID string
 
 		// expectations
-		wantAggregationSets    map[string][]redis.Z
-		wantAllAggregationSets map[string][]redis.Z
+		wantAggregationSets    map[string][]valkey.Z
+		wantAllAggregationSets map[string][]valkey.Z
 	}{
 		{
 			desc: "with deadline exceeded context",
@@ -3618,14 +3619,14 @@ func TestDeleteAggregationSetError(t *testing.T) {
 				{Msg: m2, State: base.TaskStateAggregating},
 				{Msg: m3, State: base.TaskStateAggregating},
 			},
-			aggregationSets: map[string][]redis.Z{
+			aggregationSets: map[string][]valkey.Z{
 				base.AggregationSetKey("default", "mygroup", setID): {
 					{Member: m1.ID, Score: float64(now.Add(-5 * time.Minute).Unix())},
 					{Member: m2.ID, Score: float64(now.Add(-4 * time.Minute).Unix())},
 					{Member: m3.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
 				},
 			},
-			allAggregationSets: map[string][]redis.Z{
+			allAggregationSets: map[string][]valkey.Z{
 				base.AllAggregationSets("default"): {
 					{Member: base.AggregationSetKey("default", "mygroup", setID), Score: float64(now.Add(aggregationTimeout).Unix())},
 				},
@@ -3635,7 +3636,7 @@ func TestDeleteAggregationSetError(t *testing.T) {
 			gname: "mygroup",
 			setID: setID,
 			// want data unchanged.
-			wantAggregationSets: map[string][]redis.Z{
+			wantAggregationSets: map[string][]valkey.Z{
 				base.AggregationSetKey("default", "mygroup", setID): {
 					{Member: m1.ID, Score: float64(now.Add(-5 * time.Minute).Unix())},
 					{Member: m2.ID, Score: float64(now.Add(-4 * time.Minute).Unix())},
@@ -3643,7 +3644,7 @@ func TestDeleteAggregationSetError(t *testing.T) {
 				},
 			},
 			// want data unchanged.
-			wantAllAggregationSets: map[string][]redis.Z{
+			wantAllAggregationSets: map[string][]valkey.Z{
 				base.AllAggregationSets("default"): {
 					{Member: base.AggregationSetKey("default", "mygroup", setID), Score: float64(now.Add(aggregationTimeout).Unix())},
 				},
@@ -3684,23 +3685,23 @@ func TestReclaimStaleAggregationSets(t *testing.T) {
 	// Note: In this test, we're trying out a new way to test RDB by exactly describing how
 	// keys and values are represented in Redis.
 	tests := []struct {
-		groups                 map[string][]redis.Z // map redis-key to redis-zset
-		aggregationSets        map[string][]redis.Z
-		allAggregationSets     map[string][]redis.Z
+		groups                 map[string][]valkey.Z // map valkey-key to valkey-zset
+		aggregationSets        map[string][]valkey.Z
+		allAggregationSets     map[string][]valkey.Z
 		qname                  string
-		wantGroups             map[string][]redis.Z
-		wantAggregationSets    map[string][]redis.Z
-		wantAllAggregationSets map[string][]redis.Z
+		wantGroups             map[string][]valkey.Z
+		wantAggregationSets    map[string][]valkey.Z
+		wantAllAggregationSets map[string][]valkey.Z
 	}{
 		{
-			groups: map[string][]redis.Z{
+			groups: map[string][]valkey.Z{
 				base.GroupKey("default", "foo"): {},
 				base.GroupKey("default", "bar"): {},
 				base.GroupKey("default", "qux"): {
 					{Member: m4.ID, Score: float64(now.Add(-10 * time.Second).Unix())},
 				},
 			},
-			aggregationSets: map[string][]redis.Z{
+			aggregationSets: map[string][]valkey.Z{
 				base.AggregationSetKey("default", "foo", "set1"): {
 					{Member: m1.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
 					{Member: m2.ID, Score: float64(now.Add(-4 * time.Minute).Unix())},
@@ -3709,14 +3710,14 @@ func TestReclaimStaleAggregationSets(t *testing.T) {
 					{Member: m3.ID, Score: float64(now.Add(-1 * time.Minute).Unix())},
 				},
 			},
-			allAggregationSets: map[string][]redis.Z{
+			allAggregationSets: map[string][]valkey.Z{
 				base.AllAggregationSets("default"): {
 					{Member: base.AggregationSetKey("default", "foo", "set1"), Score: float64(now.Add(-10 * time.Second).Unix())}, // set1 is expired
 					{Member: base.AggregationSetKey("default", "bar", "set2"), Score: float64(now.Add(40 * time.Second).Unix())},  // set2 is not expired
 				},
 			},
 			qname: "default",
-			wantGroups: map[string][]redis.Z{
+			wantGroups: map[string][]valkey.Z{
 				base.GroupKey("default", "foo"): {
 					{Member: m1.ID, Score: float64(now.Add(-3 * time.Minute).Unix())},
 					{Member: m2.ID, Score: float64(now.Add(-4 * time.Minute).Unix())},
@@ -3726,12 +3727,12 @@ func TestReclaimStaleAggregationSets(t *testing.T) {
 					{Member: m4.ID, Score: float64(now.Add(-10 * time.Second).Unix())},
 				},
 			},
-			wantAggregationSets: map[string][]redis.Z{
+			wantAggregationSets: map[string][]valkey.Z{
 				base.AggregationSetKey("default", "bar", "set2"): {
 					{Member: m3.ID, Score: float64(now.Add(-1 * time.Minute).Unix())},
 				},
 			},
-			wantAllAggregationSets: map[string][]redis.Z{
+			wantAllAggregationSets: map[string][]valkey.Z{
 				base.AllAggregationSets("default"): {
 					{Member: base.AggregationSetKey("default", "bar", "set2"), Score: float64(now.Add(40 * time.Second).Unix())},
 				},

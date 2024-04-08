@@ -7,6 +7,7 @@ package asynq
 import (
 	"context"
 	"fmt"
+	valkey "github.com/Desquaredp/go-valkey"
 	"strings"
 	"time"
 
@@ -26,9 +27,9 @@ type Client struct {
 	broker base.Broker
 }
 
-// NewClient returns a new Client instance given a redis connection option.
+// NewClient returns a new Client instance given a valkey connection option.
 func NewClient(r ValkeyConnOpt) *Client {
-	c, ok := r.MakeValkeyClient().(redis.UniversalClient)
+	c, ok := r.MakeValkeyClient().(valkey.UniversalClient)
 	if !ok {
 		panic(fmt.Sprintf("asynq: unsupported ValkeyConnOpt type %T", r))
 	}
@@ -304,7 +305,7 @@ var (
 	noDeadline time.Time     = time.Unix(0, 0)
 )
 
-// Close closes the connection with redis.
+// Close closes the connection with valkey.
 func (c *Client) Close() error {
 	return c.broker.Close()
 }

@@ -6,6 +6,7 @@ package asynq
 
 import (
 	"fmt"
+	valkey "github.com/Desquaredp/go-valkey"
 	"strconv"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ type Inspector struct {
 
 // New returns a new instance of Inspector.
 func NewInspector(r ValkeyConnOpt) *Inspector {
-	c, ok := r.MakeValkeyClient().(redis.UniversalClient)
+	c, ok := r.MakeValkeyClient().(valkey.UniversalClient)
 	if !ok {
 		panic(fmt.Sprintf("inspeq: unsupported ValkeyConnOpt type %T", r))
 	}
@@ -32,7 +33,7 @@ func NewInspector(r ValkeyConnOpt) *Inspector {
 	}
 }
 
-// Close closes the connection with redis.
+// Close closes the connection with valkey.
 func (i *Inspector) Close() error {
 	return i.rdb.Close()
 }
@@ -72,7 +73,7 @@ type QueueInfo struct {
 	// Name of the queue.
 	Queue string
 
-	// Total number of bytes that the queue and its tasks require to be stored in redis.
+	// Total number of bytes that the queue and its tasks require to be stored in valkey.
 	// It is an approximate memory usage value in bytes since the value is computed by sampling.
 	MemoryUsage int64
 
@@ -834,7 +835,7 @@ func (i *Inspector) ClusterKeySlot(queue string) (int64, error) {
 	return i.rdb.ClusterKeySlot(queue)
 }
 
-// ClusterNode describes a node in redis cluster.
+// ClusterNode describes a node in valkey cluster.
 type ClusterNode struct {
 	// Node ID in the cluster.
 	ID string
@@ -845,7 +846,7 @@ type ClusterNode struct {
 
 // ClusterNodes returns a list of nodes the given queue belongs to.
 //
-// Only relevant if task queues are stored in redis cluster.
+// Only relevant if task queues are stored in valkey cluster.
 func (i *Inspector) ClusterNodes(queue string) ([]*ClusterNode, error) {
 	nodes, err := i.rdb.ClusterNodes(queue)
 	if err != nil {

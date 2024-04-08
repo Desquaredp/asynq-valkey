@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	valkey "github.com/Desquaredp/go-valkey"
 	"sort"
 	"testing"
 	"time"
@@ -1137,7 +1138,7 @@ func TestInspectorListAggregatingTasks(t *testing.T) {
 		tasks     []*h.TaskSeedData
 		allQueues []string
 		allGroups map[string][]string
-		groups    map[string][]redis.Z
+		groups    map[string][]valkey.Z
 	}{
 		tasks: []*h.TaskSeedData{
 			{Msg: m1, State: base.TaskStateAggregating},
@@ -1151,7 +1152,7 @@ func TestInspectorListAggregatingTasks(t *testing.T) {
 			base.AllGroups("default"): {"group1", "group2"},
 			base.AllGroups("custom"):  {"group1"},
 		},
-		groups: map[string][]redis.Z{
+		groups: map[string][]valkey.Z{
 			base.GroupKey("default", "group1"): {
 				{Member: m1.ID, Score: float64(now.Add(-30 * time.Second).Unix())},
 				{Member: m2.ID, Score: float64(now.Add(-20 * time.Second).Unix())},
@@ -3298,7 +3299,7 @@ func TestInspectorSchedulerEntries(t *testing.T) {
 	schedulerID := "127.0.0.1:9876:abc123"
 
 	tests := []struct {
-		data []*base.SchedulerEntry // data to seed redis
+		data []*base.SchedulerEntry // data to seed valkey
 		want []*SchedulerEntry
 	}{
 		{
@@ -3444,7 +3445,7 @@ func TestInspectorGroups(t *testing.T) {
 	fixtures := struct {
 		tasks     []*h.TaskSeedData
 		allGroups map[string][]string
-		groups    map[string][]redis.Z
+		groups    map[string][]valkey.Z
 	}{
 		tasks: []*h.TaskSeedData{
 			{Msg: m1, State: base.TaskStateAggregating},
@@ -3457,7 +3458,7 @@ func TestInspectorGroups(t *testing.T) {
 			base.AllGroups("default"): {"group1", "group2"},
 			base.AllGroups("custom"):  {"group1"},
 		},
-		groups: map[string][]redis.Z{
+		groups: map[string][]valkey.Z{
 			base.GroupKey("default", "group1"): {
 				{Member: m1.ID, Score: float64(now.Add(-10 * time.Second).Unix())},
 				{Member: m2.ID, Score: float64(now.Add(-20 * time.Second).Unix())},
