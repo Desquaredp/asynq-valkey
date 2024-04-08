@@ -8,7 +8,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Gitter chat](https://badges.gitter.im/go-asynq/gitter.svg)](https://gitter.im/go-asynq/community)
 
-Asynq is a Go library for queueing tasks and processing them asynchronously with workers. It's backed by [Redis](https://redis.io/) and is designed to be scalable yet easy to get started.
+Asynq is a Go library for queueing tasks and processing them asynchronously with workers. It's backed by [Valkey](https://github.com/valkey-io/valkey) and is designed to be scalable yet easy to get started.
 
 Highlevel overview of how Asynq works:
 
@@ -30,15 +30,15 @@ Task queues are used as a mechanism to distribute work across multiple machines.
 - Automatic recovery of tasks in the event of a worker crash
 - [Weighted priority queues](https://github.com/hibiken/asynq/wiki/Queue-Priority#weighted-priority)
 - [Strict priority queues](https://github.com/hibiken/asynq/wiki/Queue-Priority#strict-priority)
-- Low latency to add a task since writes are fast in Redis
+- Low latency to add a task since writes are fast in Valkey
 - De-duplication of tasks using [unique option](https://github.com/hibiken/asynq/wiki/Unique-Tasks)
 - Allow [timeout and deadline per task](https://github.com/hibiken/asynq/wiki/Task-Timeout-and-Cancelation)
 - Allow [aggregating group of tasks](https://github.com/hibiken/asynq/wiki/Task-aggregation) to batch multiple successive operations
 - [Flexible handler interface with support for middlewares](https://github.com/hibiken/asynq/wiki/Handler-Deep-Dive)
 - [Ability to pause queue](/tools/asynq/README.md#pause) to stop processing tasks from the queue
 - [Periodic Tasks](https://github.com/hibiken/asynq/wiki/Periodic-Tasks)
-- [Support Redis Cluster](https://github.com/hibiken/asynq/wiki/Redis-Cluster) for automatic sharding and high availability
-- [Support Redis Sentinels](https://github.com/hibiken/asynq/wiki/Automatic-Failover) for high availability
+- [Support Valkey Cluster](https://github.com/hibiken/asynq/wiki/Redis-Cluster) for automatic sharding and high availability
+- [Support Valkey Sentinels](https://github.com/hibiken/asynq/wiki/Automatic-Failover) for high availability
 - Integration with [Prometheus](https://prometheus.io/) to collect and visualize queue metrics
 - [Web UI](#web-ui) to inspect and remote-control queues and tasks
 - [CLI](#command-line-tool) to inspect and remote-control queues and tasks
@@ -62,7 +62,7 @@ Initialize your project by creating a folder and then running `go mod init githu
 go get -u github.com/hibiken/asynq
 ```
 
-Make sure you're running a Redis server locally or from a [Docker](https://hub.docker.com/_/redis) container. Version `4.0` or higher is required.
+Make sure you're running a Valkey server locally or from a [Docker](https://hub.docker.com/) container. Version `4.0` or higher is required.
 
 Next, write a package that encapsulates task creation and task handling.
 
@@ -166,10 +166,10 @@ import (
     "your/app/package/tasks"
 )
 
-const redisAddr = "127.0.0.1:6379"
+const valkeyAddr = "127.0.0.1:6379"
 
 func main() {
-    client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisAddr})
+    client := asynq.NewClient(asynq.ValkeyClientOpt{Addr: valkeyAddr})
     defer client.Close()
 
     // ------------------------------------------------------
@@ -231,11 +231,11 @@ import (
     "your/app/package/tasks"
 )
 
-const redisAddr = "127.0.0.1:6379"
+const valkeyAddr = "127.0.0.1:6379"
 
 func main() {
     srv := asynq.NewServer(
-        asynq.RedisClientOpt{Addr: redisAddr},
+        asynq.ValkeyClientOpt{Addr: valkeyAddr},
         asynq.Config{
             // Specify how many concurrent workers to use
             Concurrency: 10,
