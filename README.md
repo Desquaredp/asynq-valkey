@@ -54,7 +54,7 @@ Make sure you have Go installed ([download](https://golang.org/dl/)). Latest two
 Initialize your project by creating a folder and then running `go mod init github.com/your/repo` ([learn more](https://blog.golang.org/using-go-modules)) inside the folder. Then install Asynq library with the [`go get`](https://golang.org/cmd/go/#hdr-Add_dependencies_to_current_module_and_install_them) command:
 
 ```sh
-go get -u github.com/hibiken/asynq
+go get -u github.com/Desquaredp/asynq-valkey
 ```
 
 Make sure you're running a Valkey server locally or from a [Docker](https://hub.docker.com/) container. Version `4.0` or higher is required.
@@ -290,7 +290,7 @@ Asynq ships with a command line tool to inspect the state of queues and tasks.
 To install the CLI tool, run the following command:
 
 ```sh
-go install github.com/hibiken/asynq/tools/asynq@latest
+go install github.com/Desquaredp/asynq-valkey/tools/asynq@latest
 ```
 
 Here's an example of running the `asynq dash` command:

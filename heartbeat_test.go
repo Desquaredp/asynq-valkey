@@ -10,13 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Desquaredp/asynq-valkey/internal/base"
+	"github.com/Desquaredp/asynq-valkey/internal/rdb"
+	"github.com/Desquaredp/asynq-valkey/internal/testbroker"
+	h "github.com/Desquaredp/asynq-valkey/internal/testutil"
+	"github.com/Desquaredp/asynq-valkey/internal/timeutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/hibiken/asynq/internal/base"
-	"github.com/hibiken/asynq/internal/rdb"
-	"github.com/hibiken/asynq/internal/testbroker"
-	h "github.com/hibiken/asynq/internal/testutil"
-	"github.com/hibiken/asynq/internal/timeutil"
 )
 
 // Test goes through a few phases.

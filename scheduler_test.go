@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/hibiken/asynq/internal/base"
-	"github.com/hibiken/asynq/internal/testutil"
+	"github.com/Desquaredp/asynq-valkey/internal/base"
+	"github.com/Desquaredp/asynq-valkey/internal/testutil"
 )
 
 func TestSchedulerRegister(t *testing.T) {
@@ -90,7 +90,7 @@ func TestSchedulerWhenRedisDown(t *testing.T) {
 
 	// Connect to non-existent redis instance to simulate a redis server being down.
 	scheduler := NewScheduler(
-		RedisClientOpt{Addr: ":9876"},
+		ValkeyClientOpt{Addr: ":9876"},
 		&SchedulerOpts{EnqueueErrorHandler: errorHandler},
 	)
 

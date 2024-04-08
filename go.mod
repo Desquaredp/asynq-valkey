@@ -1,4 +1,4 @@
-module github.com/hibiken/asynq
+module github.com/Desquaredp/asynq-valkey
 
 go 1.20
 
@@ -13,9 +13,12 @@ require (
 	golang.org/x/sys v0.16.0
 	golang.org/x/time v0.3.0
 	google.golang.org/protobuf v1.31.0
+	github.com/Desquaredp/go-valkey v1.0.1 // indirect
+
 )
 
 require (
+	github.com/Desquaredp/go-valkey v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 )

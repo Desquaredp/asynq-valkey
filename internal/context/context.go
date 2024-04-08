@@ -8,7 +8,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/hibiken/asynq/internal/base"
+	"github.com/Desquaredp/asynq-valkey/internal/base"
 )
 
 // A taskMetadata holds task scoped data to put in context.

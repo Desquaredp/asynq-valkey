@@ -7,16 +7,15 @@ import (
 	"strings"
 	"time"
 
+	asynqcontext "github.com/Desquaredp/asynq-valkey/internal/context"
 	"github.com/hibiken/asynq"
-	asynqcontext "github.com/hibiken/asynq/internal/context"
-	"github.com/redis/go-redis/v9"
 )
 
 // NewSemaphore creates a counting Semaphore for the given scope with the given number of tokens.
 func NewSemaphore(rco asynq.RedisConnOpt, scope string, maxTokens int) *Semaphore {
 	rc, ok := rco.MakeRedisClient().(redis.UniversalClient)
 	if !ok {
-		panic(fmt.Sprintf("rate.NewSemaphore: unsupported RedisConnOpt type %T", rco))
+		panic(fmt.Sprintf("rate.NewSemaphore: unsupported ValkeyConnOpt type %T", rco))
 	}
 
 	if maxTokens < 1 {

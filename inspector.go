@@ -10,10 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
-	"github.com/hibiken/asynq/internal/base"
-	"github.com/hibiken/asynq/internal/errors"
-	"github.com/hibiken/asynq/internal/rdb"
+	"github.com/Desquaredp/asynq-valkey/internal/base"
+	"github.com/Desquaredp/asynq-valkey/internal/errors"
+	"github.com/Desquaredp/asynq-valkey/internal/rdb"
 )
 
 // Inspector is a client interface to inspect and mutate the state of
@@ -23,10 +22,10 @@ type Inspector struct {
 }
 
 // New returns a new instance of Inspector.
-func NewInspector(r RedisConnOpt) *Inspector {
-	c, ok := r.MakeRedisClient().(redis.UniversalClient)
+func NewInspector(r ValkeyConnOpt) *Inspector {
+	c, ok := r.MakeValkeyClient().(redis.UniversalClient)
 	if !ok {
-		panic(fmt.Sprintf("inspeq: unsupported RedisConnOpt type %T", r))
+		panic(fmt.Sprintf("inspeq: unsupported ValkeyConnOpt type %T", r))
 	}
 	return &Inspector{
 		rdb: rdb.NewRDB(c),

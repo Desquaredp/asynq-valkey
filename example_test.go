@@ -12,13 +12,12 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/hibiken/asynq"
 	"golang.org/x/sys/unix"
 )
 
 func ExampleServer_Run() {
 	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: ":6379"},
+		asynq.ValkeyClientOpt{Addr: ":6379"},
 		asynq.Config{Concurrency: 20},
 	)
 
@@ -33,7 +32,7 @@ func ExampleServer_Run() {
 
 func ExampleServer_Shutdown() {
 	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: ":6379"},
+		asynq.ValkeyClientOpt{Addr: ":6379"},
 		asynq.Config{Concurrency: 20},
 	)
 
@@ -53,7 +52,7 @@ func ExampleServer_Shutdown() {
 
 func ExampleServer_Stop() {
 	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: ":6379"},
+		asynq.ValkeyClientOpt{Addr: ":6379"},
 		asynq.Config{Concurrency: 20},
 	)
 
@@ -82,7 +81,7 @@ func ExampleServer_Stop() {
 
 func ExampleScheduler() {
 	scheduler := asynq.NewScheduler(
-		asynq.RedisClientOpt{Addr: ":6379"},
+		asynq.ValkeyClientOpt{Addr: ":6379"},
 		&asynq.SchedulerOpts{Location: time.Local},
 	)
 
@@ -100,11 +99,11 @@ func ExampleScheduler() {
 }
 
 func ExampleParseRedisURI() {
-	rconn, err := asynq.ParseRedisURI("redis://localhost:6379/10")
+	rconn, err := asynq.ParseValkeyURI("redis://localhost:6379/10")
 	if err != nil {
 		log.Fatal(err)
 	}
-	r, ok := rconn.(asynq.RedisClientOpt)
+	r, ok := rconn.(asynq.ValkeyClientOpt)
 	if !ok {
 		log.Fatal("unexpected type")
 	}

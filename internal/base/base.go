@@ -14,11 +14,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Desquaredp/asynq-valkey/internal/errors"
+	pb "github.com/Desquaredp/asynq-valkey/internal/proto"
+	"github.com/Desquaredp/asynq-valkey/internal/timeutil"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/hibiken/asynq/internal/errors"
-	pb "github.com/hibiken/asynq/internal/proto"
-	"github.com/hibiken/asynq/internal/timeutil"
-	"github.com/redis/go-redis/v9"
 	"google.golang.org/protobuf/proto"
 )
 

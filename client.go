@@ -10,11 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/Desquaredp/asynq-valkey/internal/base"
+	"github.com/Desquaredp/asynq-valkey/internal/errors"
+	"github.com/Desquaredp/asynq-valkey/internal/rdb"
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq/internal/base"
-	"github.com/hibiken/asynq/internal/errors"
-	"github.com/hibiken/asynq/internal/rdb"
 )
 
 // A Client is responsible for scheduling tasks.
@@ -28,10 +27,10 @@ type Client struct {
 }
 
 // NewClient returns a new Client instance given a redis connection option.
-func NewClient(r RedisConnOpt) *Client {
-	c, ok := r.MakeRedisClient().(redis.UniversalClient)
+func NewClient(r ValkeyConnOpt) *Client {
+	c, ok := r.MakeValkeyClient().(redis.UniversalClient)
 	if !ok {
-		panic(fmt.Sprintf("asynq: unsupported RedisConnOpt type %T", r))
+		panic(fmt.Sprintf("asynq: unsupported ValkeyConnOpt type %T", r))
 	}
 	return &Client{broker: rdb.NewRDB(c)}
 }
@@ -150,9 +149,9 @@ func (t deadlineOption) Value() interface{} { return time.Time(t) }
 // TTL duration must be greater than or equal to 1 second.
 //
 // Uniqueness of a task is based on the following properties:
-//     - Task Type
-//     - Task Payload
-//     - Queue Name
+//   - Task Type
+//   - Task Payload
+//   - Queue Name
 func Unique(ttl time.Duration) Option {
 	return uniqueOption(ttl)
 }

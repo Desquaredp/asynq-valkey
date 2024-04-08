@@ -10,11 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/redis/go-redis/v9"
+	"github.com/Desquaredp/asynq-valkey/internal/base"
+	"github.com/Desquaredp/asynq-valkey/internal/log"
+	"github.com/Desquaredp/asynq-valkey/internal/rdb"
 	"github.com/google/uuid"
-	"github.com/hibiken/asynq/internal/base"
-	"github.com/hibiken/asynq/internal/log"
-	"github.com/hibiken/asynq/internal/rdb"
 	"github.com/robfig/cron/v3"
 )
 
@@ -47,10 +46,10 @@ type Scheduler struct {
 
 // NewScheduler returns a new Scheduler instance given the redis connection option.
 // The parameter opts is optional, defaults will be used if opts is set to nil
-func NewScheduler(r RedisConnOpt, opts *SchedulerOpts) *Scheduler {
-	c, ok := r.MakeRedisClient().(redis.UniversalClient)
+func NewScheduler(r ValkeyConnOpt, opts *SchedulerOpts) *Scheduler {
+	c, ok := r.MakeValkeyClient().(redis.UniversalClient)
 	if !ok {
-		panic(fmt.Sprintf("asynq: unsupported RedisConnOpt type %T", r))
+		panic(fmt.Sprintf("asynq: unsupported ValkeyConnOpt type %T", r))
 	}
 	if opts == nil {
 		opts = &SchedulerOpts{}

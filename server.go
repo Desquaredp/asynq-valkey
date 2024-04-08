@@ -15,10 +15,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hibiken/asynq/internal/base"
-	"github.com/hibiken/asynq/internal/log"
-	"github.com/hibiken/asynq/internal/rdb"
-	"github.com/redis/go-redis/v9"
+	"github.com/Desquaredp/asynq-valkey/internal/base"
+	"github.com/Desquaredp/asynq-valkey/internal/log"
+	"github.com/Desquaredp/asynq-valkey/internal/rdb"
 )
 
 // Server is responsible for task processing and task lifecycle management.
@@ -103,7 +102,7 @@ type Config struct {
 	// If BaseContext is nil, the default is context.Background().
 	// If this is defined, then it MUST return a non-nil context
 	BaseContext func() context.Context
-	
+
 	// TaskCheckInterval specifies the interval between checks for new tasks to process when all queues are empty.
 	//
 	// If unset, zero or a negative value, the interval is set to 1 second.
@@ -412,10 +411,10 @@ const (
 
 // NewServer returns a new Server given a redis connection option
 // and server configuration.
-func NewServer(r RedisConnOpt, cfg Config) *Server {
-	c, ok := r.MakeRedisClient().(redis.UniversalClient)
+func NewServer(r ValkeyConnOpt, cfg Config) *Server {
+	c, ok := r.MakeValkeyClient().(redis.UniversalClient)
 	if !ok {
-		panic(fmt.Sprintf("asynq: unsupported RedisConnOpt type %T", r))
+		panic(fmt.Sprintf("asynq: unsupported ValkeyConnOpt type %T", r))
 	}
 	baseCtxFn := cfg.BaseContext
 	if baseCtxFn == nil {

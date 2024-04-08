@@ -8,11 +8,10 @@ import (
 	"testing"
 	"time"
 
+	asynqcontext "github.com/Desquaredp/asynq-valkey/internal/context"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/hibiken/asynq/internal/base"
-	asynqcontext "github.com/hibiken/asynq/internal/context"
-	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -39,8 +38,8 @@ func TestNewSemaphore(t *testing.T) {
 		connOpt        asynq.RedisConnOpt
 	}{
 		{
-			desc:      "Bad RedisConnOpt",
-			wantPanic: "rate.NewSemaphore: unsupported RedisConnOpt type *rate.badConnOpt",
+			desc:      "Bad ValkeyConnOpt",
+			wantPanic: "rate.NewSemaphore: unsupported ValkeyConnOpt type *rate.badConnOpt",
 			connOpt:   &badConnOpt{},
 		},
 		{
@@ -403,6 +402,6 @@ func getRedisConnOpt(tb testing.TB) asynq.RedisConnOpt {
 type badConnOpt struct {
 }
 
-func (b badConnOpt) MakeRedisClient() interface{} {
+func (b badConnOpt) MakeValkeyClient() interface{} {
 	return nil
 }

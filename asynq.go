@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redis/go-redis/v9"
-	"github.com/hibiken/asynq/internal/base"
+	"github.com/Desquaredp/asynq-valkey/internal/base"
+	"github.com/Desquaredp/go-valkey"
 )
 
 // Task represents a unit of work to be performed.
@@ -225,27 +225,27 @@ func (s TaskState) String() string {
 	panic("asynq: unknown task state")
 }
 
-// RedisConnOpt is a discriminated union of types that represent Redis connection configuration option.
+// ValkeyConnOpt is a discriminated union of types that represent Valkey connection configuration option.
 //
-// RedisConnOpt represents a sum of following types:
+// ValkeyConnOpt represents a sum of following types:
 //
-//   - RedisClientOpt
-//   - RedisFailoverClientOpt
-//   - RedisClusterClientOpt
-type RedisConnOpt interface {
-	// MakeRedisClient returns a new redis client instance.
-	// Return value is intentionally opaque to hide the implementation detail of redis client.
-	MakeRedisClient() interface{}
+//   - ValkeyClientOpt
+//   - ValkeyFailoverClientOpt
+//   - ValkeyClusterClientOpt
+type ValkeyConnOpt interface {
+	// MakeValkeyClient returns a new valkey client instance.
+	// Return value is intentionally opaque to hide the implementation detail of valkey client.
+	MakeValkeyClient() interface{}
 }
 
-// RedisClientOpt is used to create a redis client that connects
+// ValkeyClientOpt is used to create a redis client that connects
 // to a redis server directly.
-type RedisClientOpt struct {
+type ValkeyClientOpt struct {
 	// Network type to use, either tcp or unix.
 	// Default is tcp.
 	Network string
 
-	// Redis server address in "host:port" format.
+	// Valkey server address in "host:port" format.
 	Addr string
 
 	// Username to authenticate the current connection when Redis ACLs are used.
@@ -289,7 +289,7 @@ type RedisClientOpt struct {
 	TLSConfig *tls.Config
 }
 
-func (opt RedisClientOpt) MakeRedisClient() interface{} {
+func (opt ValkeyClientOpt) MakeValkeyClient() interface{} {
 	return redis.NewClient(&redis.Options{
 		Network:      opt.Network,
 		Addr:         opt.Addr,
@@ -304,11 +304,11 @@ func (opt RedisClientOpt) MakeRedisClient() interface{} {
 	})
 }
 
-// RedisFailoverClientOpt is used to creates a redis client that talks
-// to redis sentinels for service discovery and has an automatic failover
+// ValkeyFailoverClientOpt is used to creates a valkey client that talks
+// to valkey sentinels for service discovery and has an automatic failover
 // capability.
-type RedisFailoverClientOpt struct {
-	// Redis master name that monitored by sentinels.
+type ValkeyFailoverClientOpt struct {
+	// Valkey master name that monitored by sentinels.
 	MasterName string
 
 	// Addresses of sentinels in "host:port" format.
@@ -316,7 +316,7 @@ type RedisFailoverClientOpt struct {
 	// https://redis.io/topics/sentinel.
 	SentinelAddrs []string
 
-	// Redis sentinel password.
+	// Valkey sentinel password.
 	SentinelPassword string
 
 	// Username to authenticate the current connection when Redis ACLs are used.
@@ -360,7 +360,7 @@ type RedisFailoverClientOpt struct {
 	TLSConfig *tls.Config
 }
 
-func (opt RedisFailoverClientOpt) MakeRedisClient() interface{} {
+func (opt ValkeyFailoverClientOpt) MakeValkeyClient() interface{} {
 	return redis.NewFailoverClient(&redis.FailoverOptions{
 		MasterName:       opt.MasterName,
 		SentinelAddrs:    opt.SentinelAddrs,
@@ -376,9 +376,9 @@ func (opt RedisFailoverClientOpt) MakeRedisClient() interface{} {
 	})
 }
 
-// RedisClusterClientOpt is used to creates a redis client that connects to
-// redis cluster.
-type RedisClusterClientOpt struct {
+// ValkeyClusterClientOpt is used to creates a valkey client that connects to
+// valkey cluster.
+type ValkeyClusterClientOpt struct {
 	// A seed list of host:port addresses of cluster nodes.
 	Addrs []string
 
@@ -420,7 +420,7 @@ type RedisClusterClientOpt struct {
 	TLSConfig *tls.Config
 }
 
-func (opt RedisClusterClientOpt) MakeRedisClient() interface{} {
+func (opt ValkeyClusterClientOpt) MakeValkeyClient() interface{} {
 	return redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:        opt.Addrs,
 		MaxRedirects: opt.MaxRedirects,
@@ -433,42 +433,43 @@ func (opt RedisClusterClientOpt) MakeRedisClient() interface{} {
 	})
 }
 
-// ParseRedisURI parses redis uri string and returns RedisConnOpt if uri is valid.
+// ParseValkeyURI parses redis uri string and returns ValkeyConnOpt if uri is valid.
 // It returns a non-nil error if uri cannot be parsed.
 //
 // Three URI schemes are supported, which are redis:, rediss:, redis-socket:, and redis-sentinel:.
 // Supported formats are:
-//     redis://[:password@]host[:port][/dbnumber]
-//     rediss://[:password@]host[:port][/dbnumber]
-//     redis-socket://[:password@]path[?db=dbnumber]
-//     redis-sentinel://[:password@]host1[:port][,host2:[:port]][,hostN:[:port]][?master=masterName]
-func ParseRedisURI(uri string) (RedisConnOpt, error) {
+//
+//	redis://[:password@]host[:port][/dbnumber]
+//	rediss://[:password@]host[:port][/dbnumber]
+//	redis-socket://[:password@]path[?db=dbnumber]
+//	redis-sentinel://[:password@]host1[:port][,host2:[:port]][,hostN:[:port]][?master=masterName]
+func ParseValkeyURI(uri string) (ValkeyConnOpt, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return nil, fmt.Errorf("asynq: could not parse redis uri: %v", err)
 	}
 	switch u.Scheme {
 	case "redis", "rediss":
-		return parseRedisURI(u)
+		return parseValkeyURI(u)
 	case "redis-socket":
-		return parseRedisSocketURI(u)
+		return parseValkeySocketURI(u)
 	case "redis-sentinel":
-		return parseRedisSentinelURI(u)
+		return parseValkeySentinelURI(u)
 	default:
 		return nil, fmt.Errorf("asynq: unsupported uri scheme: %q", u.Scheme)
 	}
 }
 
-func parseRedisURI(u *url.URL) (RedisConnOpt, error) {
+func parseValkeyURI(u *url.URL) (ValkeyConnOpt, error) {
 	var db int
 	var err error
-	var redisConnOpt RedisClientOpt
+	var valkeyConnOpt ValkeyClientOpt
 
 	if len(u.Path) > 0 {
 		xs := strings.Split(strings.Trim(u.Path, "/"), "/")
 		db, err = strconv.Atoi(xs[0])
 		if err != nil {
-			return nil, fmt.Errorf("asynq: could not parse redis uri: database number should be the first segment of the path")
+			return nil, fmt.Errorf("asynq: could not parse valkey uri: database number should be the first segment of the path")
 		}
 	}
 	var password string
@@ -481,18 +482,18 @@ func parseRedisURI(u *url.URL) (RedisConnOpt, error) {
 		if err != nil {
 			h = u.Host
 		}
-		redisConnOpt.TLSConfig = &tls.Config{ServerName: h}
+		valkeyConnOpt.TLSConfig = &tls.Config{ServerName: h}
 	}
 
-	redisConnOpt.Addr = u.Host
-	redisConnOpt.Password = password
-	redisConnOpt.DB = db
+	valkeyConnOpt.Addr = u.Host
+	valkeyConnOpt.Password = password
+	valkeyConnOpt.DB = db
 
-	return redisConnOpt, nil
+	return valkeyConnOpt, nil
 }
 
-func parseRedisSocketURI(u *url.URL) (RedisConnOpt, error) {
-	const errPrefix = "asynq: could not parse redis socket uri"
+func parseValkeySocketURI(u *url.URL) (ValkeyConnOpt, error) {
+	const errPrefix = "asynq: could not parse valkey socket uri"
 	if len(u.Path) == 0 {
 		return nil, fmt.Errorf("%s: path does not exist", errPrefix)
 	}
@@ -509,21 +510,21 @@ func parseRedisSocketURI(u *url.URL) (RedisConnOpt, error) {
 	if v, ok := u.User.Password(); ok {
 		password = v
 	}
-	return RedisClientOpt{Network: "unix", Addr: u.Path, DB: db, Password: password}, nil
+	return ValkeyClientOpt{Network: "unix", Addr: u.Path, DB: db, Password: password}, nil
 }
 
-func parseRedisSentinelURI(u *url.URL) (RedisConnOpt, error) {
+func parseValkeySentinelURI(u *url.URL) (ValkeyConnOpt, error) {
 	addrs := strings.Split(u.Host, ",")
 	master := u.Query().Get("master")
 	var password string
 	if v, ok := u.User.Password(); ok {
 		password = v
 	}
-	return RedisFailoverClientOpt{MasterName: master, SentinelAddrs: addrs, SentinelPassword: password}, nil
+	return ValkeyFailoverClientOpt{MasterName: master, SentinelAddrs: addrs, SentinelPassword: password}, nil
 }
 
 // ResultWriter is a client interface to write result data for a task.
-// It writes the data to the redis instance the server is connected to.
+// It writes the data to the valkey instance the server is connected to.
 type ResultWriter struct {
 	id     string // task ID this writer is responsible for
 	qname  string // queue name the task belongs to

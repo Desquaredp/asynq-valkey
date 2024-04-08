@@ -14,14 +14,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Desquaredp/asynq-valkey/internal/base"
+	"github.com/Desquaredp/asynq-valkey/internal/errors"
+	"github.com/Desquaredp/asynq-valkey/internal/log"
+	"github.com/Desquaredp/asynq-valkey/internal/rdb"
+	h "github.com/Desquaredp/asynq-valkey/internal/testutil"
+	"github.com/Desquaredp/asynq-valkey/internal/timeutil"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/hibiken/asynq/internal/base"
-	"github.com/hibiken/asynq/internal/errors"
-	"github.com/hibiken/asynq/internal/log"
-	"github.com/hibiken/asynq/internal/rdb"
-	h "github.com/hibiken/asynq/internal/testutil"
-	"github.com/hibiken/asynq/internal/timeutil"
 )
 
 var taskCmpOpts = []cmp.Option{

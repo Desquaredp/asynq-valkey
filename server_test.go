@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hibiken/asynq/internal/rdb"
-	"github.com/hibiken/asynq/internal/testbroker"
-	"github.com/hibiken/asynq/internal/testutil"
+	"github.com/Desquaredp/asynq-valkey/internal/rdb"
+	"github.com/Desquaredp/asynq-valkey/internal/testbroker"
+	"github.com/Desquaredp/asynq-valkey/internal/testutil"
 	"go.uber.org/goleak"
 )
 
@@ -58,7 +58,7 @@ func TestServerRun(t *testing.T) {
 	ignoreOpt := goleak.IgnoreTopFunction("github.com/redis/go-redis/v9/internal/pool.(*ConnPool).reaper")
 	defer goleak.VerifyNone(t, ignoreOpt)
 
-	srv := NewServer(RedisClientOpt{Addr: ":6379"}, Config{LogLevel: testLogLevel})
+	srv := NewServer(ValkeyClientOpt{Addr: ":6379"}, Config{LogLevel: testLogLevel})
 
 	done := make(chan struct{})
 	// Make sure server exits when receiving TERM signal.
@@ -83,7 +83,7 @@ func TestServerRun(t *testing.T) {
 }
 
 func TestServerErrServerClosed(t *testing.T) {
-	srv := NewServer(RedisClientOpt{Addr: ":6379"}, Config{LogLevel: testLogLevel})
+	srv := NewServer(ValkeyClientOpt{Addr: ":6379"}, Config{LogLevel: testLogLevel})
 	handler := NewServeMux()
 	if err := srv.Start(handler); err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestServerErrServerClosed(t *testing.T) {
 }
 
 func TestServerErrNilHandler(t *testing.T) {
-	srv := NewServer(RedisClientOpt{Addr: ":6379"}, Config{LogLevel: testLogLevel})
+	srv := NewServer(ValkeyClientOpt{Addr: ":6379"}, Config{LogLevel: testLogLevel})
 	err := srv.Start(nil)
 	if err == nil {
 		t.Error("Starting server with nil handler: (*Server).Start(nil) did not return error")
@@ -105,7 +105,7 @@ func TestServerErrNilHandler(t *testing.T) {
 }
 
 func TestServerErrServerRunning(t *testing.T) {
-	srv := NewServer(RedisClientOpt{Addr: ":6379"}, Config{LogLevel: testLogLevel})
+	srv := NewServer(ValkeyClientOpt{Addr: ":6379"}, Config{LogLevel: testLogLevel})
 	handler := NewServeMux()
 	if err := srv.Start(handler); err != nil {
 		t.Fatal(err)
@@ -126,7 +126,7 @@ func TestServerWithRedisDown(t *testing.T) {
 	}()
 	r := rdb.NewRDB(setup(t))
 	testBroker := testbroker.NewTestBroker(r)
-	srv := NewServer(RedisClientOpt{Addr: ":6379"}, Config{LogLevel: testLogLevel})
+	srv := NewServer(ValkeyClientOpt{Addr: ":6379"}, Config{LogLevel: testLogLevel})
 	srv.broker = testBroker
 	srv.forwarder.broker = testBroker
 	srv.heartbeater.broker = testBroker

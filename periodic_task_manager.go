@@ -29,7 +29,7 @@ type PeriodicTaskManagerOpts struct {
 	PeriodicTaskConfigProvider PeriodicTaskConfigProvider
 
 	// Required: must be non nil
-	RedisConnOpt RedisConnOpt
+	ValkeyConnOpt ValkeyConnOpt
 
 	// Optional: scheduler options
 	*SchedulerOpts
@@ -46,10 +46,10 @@ func NewPeriodicTaskManager(opts PeriodicTaskManagerOpts) (*PeriodicTaskManager,
 	if opts.PeriodicTaskConfigProvider == nil {
 		return nil, fmt.Errorf("PeriodicTaskConfigProvider cannot be nil")
 	}
-	if opts.RedisConnOpt == nil {
-		return nil, fmt.Errorf("RedisConnOpt cannot be nil")
+	if opts.ValkeyConnOpt == nil {
+		return nil, fmt.Errorf("ValkeyConnOpt cannot be nil")
 	}
-	scheduler := NewScheduler(opts.RedisConnOpt, opts.SchedulerOpts)
+	scheduler := NewScheduler(opts.ValkeyConnOpt, opts.SchedulerOpts)
 	syncInterval := opts.SyncInterval
 	if syncInterval == 0 {
 		syncInterval = defaultSyncInterval

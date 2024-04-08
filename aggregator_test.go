@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Desquaredp/asynq-valkey/internal/base"
+	"github.com/Desquaredp/asynq-valkey/internal/rdb"
+	h "github.com/Desquaredp/asynq-valkey/internal/testutil"
 	"github.com/google/go-cmp/cmp"
-	"github.com/hibiken/asynq/internal/base"
-	"github.com/hibiken/asynq/internal/rdb"
-	h "github.com/hibiken/asynq/internal/testutil"
 )
 
 func TestAggregator(t *testing.T) {

@@ -43,14 +43,14 @@ func TestNewPeriodicTaskManager(t *testing.T) {
 		{
 			desc: "with provider and redisConnOpt",
 			opts: PeriodicTaskManagerOpts{
-				RedisConnOpt:               RedisClientOpt{Addr: ":6379"},
+				ValkeyConnOpt:              ValkeyClientOpt{Addr: ":6379"},
 				PeriodicTaskConfigProvider: &FakeConfigProvider{cfgs: cfgs},
 			},
 		},
 		{
 			desc: "with sync option",
 			opts: PeriodicTaskManagerOpts{
-				RedisConnOpt:               RedisClientOpt{Addr: ":6379"},
+				ValkeyConnOpt:              ValkeyClientOpt{Addr: ":6379"},
 				PeriodicTaskConfigProvider: &FakeConfigProvider{cfgs: cfgs},
 				SyncInterval:               5 * time.Minute,
 			},
@@ -58,7 +58,7 @@ func TestNewPeriodicTaskManager(t *testing.T) {
 		{
 			desc: "with scheduler option",
 			opts: PeriodicTaskManagerOpts{
-				RedisConnOpt:               RedisClientOpt{Addr: ":6379"},
+				ValkeyConnOpt:              ValkeyClientOpt{Addr: ":6379"},
 				PeriodicTaskConfigProvider: &FakeConfigProvider{cfgs: cfgs},
 				SyncInterval:               5 * time.Minute,
 				SchedulerOpts: &SchedulerOpts{
@@ -88,7 +88,7 @@ func TestNewPeriodicTaskManagerError(t *testing.T) {
 		{
 			desc: "without provider",
 			opts: PeriodicTaskManagerOpts{
-				RedisConnOpt: RedisClientOpt{Addr: ":6379"},
+				ValkeyConnOpt: ValkeyClientOpt{Addr: ":6379"},
 			},
 		},
 		{
@@ -261,7 +261,7 @@ func TestPeriodicTaskManager(t *testing.T) {
 	const syncInterval = 3 * time.Second
 	provider := &FakeConfigProvider{cfgs: cfgs}
 	mgr, err := NewPeriodicTaskManager(PeriodicTaskManagerOpts{
-		RedisConnOpt:               getRedisConnOpt(t),
+		ValkeyConnOpt:              getRedisConnOpt(t),
 		PeriodicTaskConfigProvider: provider,
 		SyncInterval:               syncInterval,
 	})
